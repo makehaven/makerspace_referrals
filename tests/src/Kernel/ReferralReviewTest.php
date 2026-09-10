@@ -27,6 +27,7 @@ class ReferralReviewTest extends KernelTestBase {
   protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('user');
+    $this->installSchema('user', ['users_data']);
     $this->installEntitySchema('profile');
     $this->installSchema('makerspace_referrals', ['makerspace_referral_review']);
     ProfileType::create(['id' => 'main', 'label' => 'Main'])->save();
