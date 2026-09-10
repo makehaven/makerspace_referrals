@@ -7,6 +7,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 use Drupal\profile\Entity\ProfileInterface;
+use Drupal\user\UserInterface;
 
 /**
  * Preserves source answers and records explicit staff attribution decisions.
@@ -51,6 +52,26 @@ class ReferralReview {
       }
     }
     return $decision->status;
+  }
+
+  /**
+   * Returns the confirmed account for the current answer, or NULL.
+   *
+   * Reward consumers must separately verify eligibility and prior fulfillment.
+   * Reload the profile so a caller holding an old entity cannot use stale text.
+   */
+  public function confirmedReferrer(int $profile_id): ?UserInterface {
+    $storage = $this->entities->getStorage('profile');
+    $storage->resetCache([$profile_id]);
+    $profile = $storage->load($profile_id);
+    if (!$profile || $profile->bundle() !== 'main' || trim($this->source($profile)) === '') {
+      return NULL;
+    }
+    $decision = $this->latest($profile_id);
+    if ($this->status($profile, $decision) !== 'confirmed') {
+      return NULL;
+    }
+    return $this->entities->getStorage('user')->load($decision->referrer_uid);
   }
 
   /**

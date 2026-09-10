@@ -34,10 +34,12 @@ class ReferralQueue extends ControllerBase {
     foreach ($this->review->profiles() as $profile) {
       $latest = $this->review->latest((int) $profile->id());
       $status = $this->review->status($profile, $latest);
+      $referrer = $this->review->confirmedReferrer((int) $profile->id());
       $rows[] = [
         $profile->getOwner()?->toLink() ?? $this->t('Account unavailable'),
         ['data' => ['#plain_text' => $this->review->source($profile)]],
         $labels[$status] ?? $labels['pending'],
+        $referrer ? $referrer->toLink() : $this->t('Not linked'),
         Link::createFromRoute($this->t('Review'), 'makerspace_referrals.review', ['profile' => $profile->id()]),
       ];
     }
@@ -49,6 +51,7 @@ class ReferralQueue extends ControllerBase {
           $this->t('Person referred'),
           $this->t('Original answer'),
           $this->t('Attribution'),
+          $this->t('Linked referrer'),
           $this->t('Action'),
         ],
         '#rows' => $rows,

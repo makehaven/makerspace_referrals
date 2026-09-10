@@ -55,10 +55,12 @@ class ReferralReviewTest extends KernelTestBase {
     $id = (int) $profile->id();
     $hash = hash('sha256', $service->source($profile));
     $this->assertSame('pending', $service->status($profile, NULL));
+    $this->assertNull($service->confirmedReferrer($id));
     $this->assertEquals([$referrer->id()], array_keys($service->candidates($profile)));
     $service->decide($id, $hash, 0, 'confirmed', (int) $referrer->id(), (int) $owner->id());
     $decision = $service->latest($id);
     $this->assertSame('confirmed', $service->status($profile, $decision));
+    $this->assertEquals($referrer->id(), $service->confirmedReferrer($id)->id());
     $this->assertSame('  Ada Lovelace  ', $decision->source_text);
     $this->assertSame('  Ada Lovelace  ', $service->source($profile));
     $service->decide($id, $hash, (int) $decision->id, 'confirmed', (int) $referrer->id(), (int) $owner->id());
@@ -72,6 +74,7 @@ class ReferralReviewTest extends KernelTestBase {
     }
     $profile->set('field_member_referring', 'Another person')->save();
     $this->assertSame('pending', $service->status($profile, $decision));
+    $this->assertNull($service->confirmedReferrer($id));
     try {
       $service->decide($id, $hash, (int) $decision->id, 'external', 0, (int) $owner->id());
       $this->fail('Changed source should be rejected.');
@@ -82,9 +85,31 @@ class ReferralReviewTest extends KernelTestBase {
     $hash = hash('sha256', 'Another person');
     $service->decide($id, $hash, (int) $decision->id, 'external', 0, (int) $owner->id());
     $this->assertSame('external', $service->status($profile, $service->latest($id)));
+    $this->assertNull($service->confirmedReferrer($id));
     $service->decide($id, $hash, (int) $service->latest($id)->id, 'pending', 0, (int) $owner->id());
     $this->assertSame('pending', $service->status($profile, $service->latest($id)));
+    $this->assertNull($service->confirmedReferrer($id));
     $this->assertEquals(3, $this->container->get('database')->select('makerspace_referral_review')->countQuery()->execute()->fetchField());
+  }
+
+  /**
+   * A removed account cannot remain a reward recipient through old history.
+   */
+  public function testDeletedReferrerIsNotReturned(): void {
+    $owner = User::create(['name' => 'recruited']);
+    $owner->save();
+    $referrer = User::create(['name' => 'referrer_to_delete']);
+    $referrer->save();
+    $profile = Profile::create(['type' => 'main', 'uid' => $owner->id(), 'field_member_referring' => 'A member']);
+    $profile->save();
+    $service = $this->container->get('makerspace_referrals.review');
+    $id = (int) $profile->id();
+    $service->decide($id, hash('sha256', 'A member'), 0, 'confirmed', (int) $referrer->id(), (int) $owner->id());
+    $this->assertEquals($referrer->id(), $service->confirmedReferrer($id)->id());
+    $referrer->delete();
+    $this->assertNull($service->confirmedReferrer($id));
+    $this->assertNotNull($service->latest($id));
+    $this->assertNull($service->confirmedReferrer(999999));
   }
 
   /**

@@ -47,3 +47,14 @@ source changes, concurrent reviews, reopening and self-referral rejection.
 Functional tests exercise anonymous/member denial, staff listing, escaped source
 text, actual confirmation/reopening and stale source protection through the form.
 Use a MariaDB test database with Drupal's test-prefix isolation.
+
+## Confirmed account link
+
+The list displays a clickable **Linked referrer** account after confirmation.
+The stored `referrer_uid` is the Drupal account ID, not a name string. Consumers
+can call `makerspace_referrals.review->confirmedReferrer($profile_id)` to get
+the current confirmed user entity, or NULL for pending/external/changed answers,
+missing profiles or deleted referrers. This reloads the profile before checking
+its source against the review. Reward code can use the returned account's ID to
+resolve its billing customer; it must independently check eligibility, successful
+payment and an idempotent reward ledger. No credit is issued by this lookup.
