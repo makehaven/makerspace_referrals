@@ -1,0 +1,8 @@
+name: Makerspace Referrals
+type: module
+description: Staff review of member recruitment referral attribution.
+core_version_requirement: ^10 || ^11
+package: Makerspace
+dependencies:
+  - profile:profile
+  - drupal:user

@@ -1,0 +1,4 @@
+services:
+  makerspace_referrals.review:
+    class: Drupal\makerspace_referrals\Service\ReferralReview
+    arguments: ['@database', '@entity_type.manager', '@datetime.time', '@lock']

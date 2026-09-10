@@ -1,0 +1,5 @@
+makerspace_referrals.queue:
+  title: 'Member recruitment referrals'
+  description: 'Identify referrers and review unresolved recruitment referrals.'
+  route_name: makerspace_referrals.queue
+  parent: entity.user.collection

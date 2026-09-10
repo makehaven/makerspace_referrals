@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * @file
+ * Stores append-only staff attribution decisions, separate from rewards.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function makerspace_referrals_schema(): array {
+  return [
+    'makerspace_referral_review' => [
+      'description' => 'Auditable member referral attribution decisions.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'profile_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+        'source_text' => ['type' => 'text', 'not null' => TRUE],
+        'referrer_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+        'status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+        'reviewer_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'created' => ['type' => 'int', 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      'indexes' => ['profile_history' => ['profile_id', 'id']],
+    ],
+  ];
+}

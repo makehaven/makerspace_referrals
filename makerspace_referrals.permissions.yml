@@ -1,0 +1,4 @@
+review member referrals:
+  title: 'Review member recruitment referrals'
+  description: 'View referral answers and confirm or correct referrer identities.'
+  restrict access: true

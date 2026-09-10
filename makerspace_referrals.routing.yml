@@ -1,0 +1,21 @@
+makerspace_referrals.queue:
+  path: '/admin/people/referrals'
+  defaults:
+    _controller: '\Drupal\makerspace_referrals\Controller\ReferralQueue::build'
+    _title: 'Member recruitment referrals'
+  requirements:
+    _permission: 'review member referrals'
+  options:
+    _admin_route: true
+makerspace_referrals.review:
+  path: '/admin/people/referrals/{profile}/review'
+  defaults:
+    _form: '\Drupal\makerspace_referrals\Form\ReferralReviewForm'
+    _title: 'Review member referral'
+  requirements:
+    _permission: 'review member referrals'
+  options:
+    _admin_route: true
+    parameters:
+      profile:
+        type: entity:profile

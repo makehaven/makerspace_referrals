@@ -1,0 +1,6 @@
+{
+  "name": "makehaven/makerspace_referrals",
+  "description": "Staff review and identity resolution for member recruitment referrals.",
+  "type": "drupal-custom-module",
+  "license": "GPL-2.0-or-later"
+}
