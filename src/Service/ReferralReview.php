@@ -5,6 +5,7 @@ namespace Drupal\makerspace_referrals\Service;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Database\Query\SelectInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 use Drupal\profile\Entity\ProfileInterface;
@@ -107,23 +108,32 @@ class ReferralReview {
    * It is a count of work outstanding, not of credits owed. A stored name is
    * not evidence that anything is unpaid.
    *
-   * Matches on `source_text` rather than re-hashing the column, because SHA2()
-   * is MariaDB-only and the kernel suite runs on SQLite. The stored text and
-   * the stored hash always describe the same answer — decide() writes both from
-   * one string. One bounded divergence: under a case-insensitive collation an
-   * edit that changes only capitalisation reads as still-reviewed here, while
-   * status() calls it pending. The queue page itself uses status(), which stays
-   * authoritative; this number can be short by one in that rare case.
+   * Shares the pending worklist query, including byte-exact source comparison.
    */
   public function pendingCount(): int {
-    $sql = <<<SQL
-      SELECT COUNT(*)
-      FROM {profile} p
-      INNER JOIN {profile__field_member_referring} r
-        ON r.entity_id = p.profile_id AND r.deleted = 0
-       AND r.field_member_referring_value <> :empty
-      WHERE p.type = :type
-        AND NOT EXISTS (
+    return (int) $this->pendingQuery()->countQuery()->execute()->fetchField();
+  }
+
+  /**
+   * Queryable pending identities, shared by pagination and the menu count.
+   */
+  protected function pendingQuery(): SelectInterface {
+    $query = $this->database->select('profile', 'p');
+    $query->innerJoin('profile__field_member_referring', 'r', 'r.entity_id = p.profile_id AND r.deleted = 0');
+    $query->addField('p', 'profile_id');
+    $query->addField('p', 'created');
+    $query->distinct()->condition('p.type', 'main');
+    $query->where("TRIM(r.field_member_referring_value) <> ''");
+    // MySQL's normal collation ignores case and trailing spaces, whereas the
+    // source hash used by status() does not. Cast both sides for equality.
+    $source_equal = $this->database->driver() === 'mysql'
+      ? 'BINARY d.source_text = BINARY r.field_member_referring_value'
+      : 'd.source_text = r.field_member_referring_value COLLATE "C"';
+    if ($this->database->driver() === 'sqlite') {
+      $source_equal = 'd.source_text = r.field_member_referring_value COLLATE BINARY';
+    }
+    $query->where(<<<SQL
+        NOT EXISTS (
           SELECT 1
           FROM {makerspace_referral_review} d
           LEFT JOIN {users_field_data} u ON u.uid = d.referrer_uid
@@ -132,27 +142,29 @@ class ReferralReview {
               SELECT MAX(d2.id) FROM {makerspace_referral_review} d2
               WHERE d2.profile_id = p.profile_id
             )
-            AND d.source_text = r.field_member_referring_value
+            AND $source_equal
             AND (
               d.status = :external
               OR (d.status = :confirmed AND u.uid IS NOT NULL AND u.uid <> p.uid)
             )
         )
-      SQL;
-
-    return (int) $this->database->query($sql, [
-      ':empty' => '',
-      ':type' => 'main',
-      ':external' => 'external',
-      ':confirmed' => 'confirmed',
-    ])->fetchField();
+      SQL, [
+        ':external' => 'external',
+        ':confirmed' => 'confirmed',
+      ]);
+    return $query;
   }
 
   /**
    * Lists profiles with an answer, independent of discovery type.
    */
-  public function profiles(): array {
+  public function profiles(bool $pending_only = FALSE): array {
     $storage = $this->entities->getStorage('profile');
+    if ($pending_only) {
+      $ids = $this->pendingQuery()->orderBy('p.created', 'DESC')->orderBy('p.profile_id', 'DESC')
+        ->extend('Drupal\Core\Database\Query\PagerSelectExtender')->limit(25)->execute()->fetchCol();
+      return $storage->loadMultiple($ids);
+    }
     $ids = $storage->getQuery()->accessCheck(FALSE)
       ->condition('type', 'main')
       ->condition('field_member_referring', '', '<>')

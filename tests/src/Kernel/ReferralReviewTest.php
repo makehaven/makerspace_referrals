@@ -108,6 +108,30 @@ class ReferralReviewTest extends KernelTestBase {
   }
 
   /**
+   * The worklist excludes decisions and reopens case-only source corrections.
+   */
+  public function testPendingWorklist(): void {
+    $owner = User::create(['name' => 'worklist_member']);
+    $owner->save();
+    $profile = Profile::create([
+      'type' => 'main',
+      'uid' => $owner->id(),
+      'field_member_referring' => 'An External Referrer',
+    ]);
+    $profile->save();
+    $id = (int) $profile->id();
+    $service = $this->container->get('makerspace_referrals.review');
+    $this->assertArrayHasKey($id, $service->profiles(TRUE));
+    $service->decide($id, hash('sha256', 'An External Referrer'), 0, 'external', 0, (int) $owner->id());
+    $this->assertSame([], $service->profiles(TRUE));
+    $this->assertArrayHasKey($id, $service->profiles());
+    $profile->set('field_member_referring', 'an external referrer')->save();
+    $this->assertSame(1, $service->pendingCount());
+    $this->assertArrayHasKey($id, $service->profiles(TRUE));
+    $this->assertSame('pending', $service->status($profile, $service->latest($id)));
+  }
+
+  /**
    * Reloads a profile so a stale entity cannot mask a changed answer.
    */
   protected function reloadProfile(int $id): Profile {

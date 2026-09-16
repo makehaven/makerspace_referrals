@@ -50,6 +50,18 @@ the pending count in the menu link title does not go stale. Every other profile
 edit is ignored. Historical names are visible
 without a migration; a stored name is not evidence that a credit remains unpaid.
 
+## Working the queue
+
+The queue shows the current pending count and offers **All answers** and
+**Needs review** (`/admin/people/referrals?status=pending`). Filtering happens
+before pagination, so reviewed answers do not hide older outstanding work.
+Case-only changes to a source answer also reopen it in the count and worklist.
+
+Confirm the referrer account first. Then check the billing history before any
+manual award: a reviewed identity is not evidence of an unpaid credit. The site
+does not yet record award fulfillment. Reconcile historical credits with the
+person who applied them before treating old names as a payment backlog.
+
 Uninstalling the module drops its review table via Drupal's normal schema cleanup.
 Export required history before uninstalling. Profile source answers are retained.
 

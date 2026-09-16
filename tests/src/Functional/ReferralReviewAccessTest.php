@@ -68,6 +68,9 @@ class ReferralReviewAccessTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Referral review saved.');
     $this->assertSession()->pageTextContains('Identity confirmed');
     $this->assertSession()->linkByHrefExists('/user/' . $referrer->id());
+    $this->drupalGet('/admin/people/referrals', ['query' => ['status' => 'pending']]);
+    $this->assertSession()->pageTextContains('0 referrals need identity review.');
+    $this->assertSession()->linkByHrefNotExists($path);
     $this->drupalGet('/admin/people/referrals');
     $this->assertSession()->linkByHrefExists('/user/' . $referrer->id());
     $this->assertEquals($referrer->id(), $this->container->get('makerspace_referrals.review')->confirmedReferrer((int) $profile->id())->id());
