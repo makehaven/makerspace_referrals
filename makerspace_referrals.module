@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * Cache invalidation only — no referral workflow lives here.
+ *
+ * The module's data boundary (see README) is deliberate: no profile-save hook
+ * writes referral state, creates reviews, sends mail or touches billing. The
+ * single hook below writes nothing. It exists because the number of referrals
+ * awaiting review is rendered in a menu link title, and Drupal's menu render
+ * cache is only moved by a cache tag — so a referral arriving has to say so, or
+ * staff keep seeing yesterday's number.
+ */
+
+use Drupal\profile\Entity\ProfileInterface;
+
+/**
+ * Implements hook_profile_presave().
+ */
+function makerspace_referrals_profile_presave(ProfileInterface $profile): void {
+  if ($profile->bundle() !== 'main' || !$profile->hasField('field_member_referring')) {
+    return;
+  }
+  $new = (string) $profile->get('field_member_referring')->value;
+  $original = $profile->original ?? NULL;
+  $old = $original instanceof ProfileInterface && $original->hasField('field_member_referring')
+    ? (string) $original->get('field_member_referring')->value
+    : '';
+  // Only the answer changing can change the count. Every other profile edit —
+  // a bio, a phone number — must not drop the admin menu cache.
+  if ($new === $old) {
+    return;
+  }
+  \Drupal::service('makerspace_referrals.review')->invalidatePendingCount();
+}

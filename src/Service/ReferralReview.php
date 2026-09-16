@@ -3,6 +3,7 @@
 namespace Drupal\makerspace_referrals\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Lock\LockBackendInterface;
@@ -94,6 +95,60 @@ class ReferralReview {
   }
 
   /**
+   * Counts answers that still need a staff decision.
+   *
+   * Mirrors status() exactly — an answer is pending when it has no decision,
+   * when its text changed since the decision was made, when the decision itself
+   * is 'pending', or when a 'confirmed' decision points at an account that has
+   * since been deleted or turns out to be the person's own. Doing that per row
+   * through status() would load every profile; this is the same rule expressed
+   * once in SQL so it is cheap enough to render in a menu title.
+   *
+   * It is a count of work outstanding, not of credits owed. A stored name is
+   * not evidence that anything is unpaid.
+   *
+   * Matches on `source_text` rather than re-hashing the column, because SHA2()
+   * is MariaDB-only and the kernel suite runs on SQLite. The stored text and
+   * the stored hash always describe the same answer — decide() writes both from
+   * one string. One bounded divergence: under a case-insensitive collation an
+   * edit that changes only capitalisation reads as still-reviewed here, while
+   * status() calls it pending. The queue page itself uses status(), which stays
+   * authoritative; this number can be short by one in that rare case.
+   */
+  public function pendingCount(): int {
+    $sql = <<<SQL
+      SELECT COUNT(*)
+      FROM {profile} p
+      INNER JOIN {profile__field_member_referring} r
+        ON r.entity_id = p.profile_id AND r.deleted = 0
+       AND r.field_member_referring_value <> :empty
+      WHERE p.type = :type
+        AND NOT EXISTS (
+          SELECT 1
+          FROM {makerspace_referral_review} d
+          LEFT JOIN {users_field_data} u ON u.uid = d.referrer_uid
+          WHERE d.profile_id = p.profile_id
+            AND d.id = (
+              SELECT MAX(d2.id) FROM {makerspace_referral_review} d2
+              WHERE d2.profile_id = p.profile_id
+            )
+            AND d.source_text = r.field_member_referring_value
+            AND (
+              d.status = :external
+              OR (d.status = :confirmed AND u.uid IS NOT NULL AND u.uid <> p.uid)
+            )
+        )
+      SQL;
+
+    return (int) $this->database->query($sql, [
+      ':empty' => '',
+      ':type' => 'main',
+      ':external' => 'external',
+      ':confirmed' => 'confirmed',
+    ])->fetchField();
+  }
+
+  /**
    * Lists profiles with an answer, independent of discovery type.
    */
   public function profiles(): array {
@@ -150,10 +205,28 @@ class ReferralReview {
         'reviewer_uid' => $reviewer_uid,
         'created' => $this->time->getCurrentTime(),
       ])->execute();
+      $this->invalidatePendingCount();
     }
     finally {
       $this->lock->release($key);
     }
+  }
+
+  /**
+   * Drops the cached menus that render the pending count in a link title.
+   *
+   * The count lives in a menu link title, and Drupal's menu render cache does
+   * not honour a link plugin's own max-age — measured 2026-09-16: after a
+   * decision the service returned 544 while the toolbar still drew 545. Only a
+   * cache tag moves it, so both menus carrying the link are invalidated here
+   * and from the profile hook in makerspace_referrals.module. Decisions and new
+   * answers are both rare, so this costs nothing in practice.
+   */
+  public function invalidatePendingCount(): void {
+    Cache::invalidateTags([
+      'config:system.menu.admin',
+      'config:system.menu.staff-tools',
+    ]);
   }
 
 }

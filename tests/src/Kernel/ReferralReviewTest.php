@@ -43,6 +43,80 @@ class ReferralReviewTest extends KernelTestBase {
   }
 
   /**
+   * The pending count must agree with status(), row for row.
+   *
+   * It is rendered in a menu link, so staff act on it; a count that drifts from
+   * the page it advertises is worse than no count. Covers every branch of
+   * status(): no decision, confirmed, changed answer, and a confirmed decision
+   * pointing at the person themselves.
+   */
+  public function testPendingCountMatchesStatus(): void {
+    $service = $this->container->get('makerspace_referrals.review');
+    $this->assertSame(0, $service->pendingCount(), 'No answers, nothing pending.');
+
+    $owner = User::create(['name' => 'counted_member']);
+    $owner->save();
+    $referrer = User::create(['name' => 'counted_referrer']);
+    $referrer->save();
+    $profile = Profile::create([
+      'type' => 'main',
+      'uid' => $owner->id(),
+      'field_member_referring' => 'Grace Hopper',
+    ]);
+    $profile->save();
+    $id = (int) $profile->id();
+
+    // An answer with no decision is work outstanding.
+    $this->assertSame(1, $service->pendingCount());
+
+    // A confirmed decision clears it.
+    $service->decide($id, hash('sha256', 'Grace Hopper'), 0, 'confirmed', (int) $referrer->id(), 1);
+    $this->assertSame('confirmed', $service->status($profile, $service->latest($id)));
+    $this->assertSame(0, $service->pendingCount());
+
+    // Marking it external is also a decision, not outstanding work.
+    $service->decide($id, hash('sha256', 'Grace Hopper'), (int) $service->latest($id)->id, 'external', 0, 1);
+    $this->assertSame(0, $service->pendingCount());
+
+    // Changing the answer reopens it — the old decision describes a different
+    // name, so it cannot stand in for a review of this one.
+    $profile->set('field_member_referring', 'Grace Hopper Jr')->save();
+    $reloaded = $this->reloadProfile($id);
+    $this->assertSame('pending', $service->status($reloaded, $service->latest($id)));
+    $this->assertSame(1, $service->pendingCount());
+
+    // A confirmed decision naming the person themselves is not a review.
+    $service->decide($id, hash('sha256', 'Grace Hopper Jr'), (int) $service->latest($id)->id, 'confirmed', (int) $referrer->id(), 1);
+    $this->assertSame(0, $service->pendingCount());
+    $this->container->get('database')->update('makerspace_referral_review')
+      ->fields(['referrer_uid' => (int) $owner->id()])
+      ->condition('id', (int) $service->latest($id)->id)
+      ->execute();
+    $this->assertSame('pending', $service->status($this->reloadProfile($id), $service->latest($id)));
+    $this->assertSame(1, $service->pendingCount(), 'A self-referral is never a completed review.');
+
+    // A deleted referrer reopens it too.
+    $this->container->get('database')->update('makerspace_referral_review')
+      ->fields(['referrer_uid' => 99999])
+      ->condition('id', (int) $service->latest($id)->id)
+      ->execute();
+    $this->assertSame(1, $service->pendingCount());
+
+    // An empty answer is not a referral at all.
+    $profile->set('field_member_referring', '')->save();
+    $this->assertSame(0, $service->pendingCount());
+  }
+
+  /**
+   * Reloads a profile so a stale entity cannot mask a changed answer.
+   */
+  protected function reloadProfile(int $id): Profile {
+    $storage = $this->container->get('entity_type.manager')->getStorage('profile');
+    $storage->resetCache([$id]);
+    return $storage->load($id);
+  }
+
+  /**
    * Confirms provenance, duplicate prevention, reopening and changed answers.
    */
   public function testReviewLifecycle(): void {

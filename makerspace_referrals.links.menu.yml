@@ -1,5 +1,22 @@
+# Admin menu (toolbar + Coffee search). The title carries the pending count via
+# the plugin class, so staff see there is work without opening the page.
 makerspace_referrals.queue:
   title: 'Member recruitment referrals'
   description: 'Identify referrers and review unresolved recruitment referrals.'
   route_name: makerspace_referrals.queue
   parent: entity.user.collection
+  class: Drupal\makerspace_referrals\Plugin\Menu\ReferralQueueMenuLink
+
+# Staff Tools menu. Adding the link is not enough on its own — /staff-tools
+# renders `makerspace_staff_tools`'s curated inventory, not this menu, so the
+# link must ALSO be filed in that module's data/staff_tools.inventory.yml or it
+# ships invisible there. Fourteen links fell through exactly that gap by
+# 2026-09-14, the newsletter console among them.
+makerspace_referrals.staff_queue:
+  title: 'Member recruitment referrals'
+  description: 'Identify referrers and review unresolved recruitment referrals.'
+  route_name: makerspace_referrals.queue
+  menu_name: staff-tools
+  parent: slack_member_sync.staff_tab
+  weight: 15
+  class: Drupal\makerspace_referrals\Plugin\Menu\ReferralQueueMenuLink

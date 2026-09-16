@@ -15,7 +15,16 @@ does not establish membership at the referral date or reward eligibility.
 
 Enable `makerspace_referrals` and grant **Review member recruitment referrals**
 only to appropriate staff. Visit People → Member recruitment referrals at
-`/admin/people/referrals`. The list includes all nonempty answers on main profiles,
+`/admin/people/referrals`, or Staff Tools → Membership → Queues & actions.
+
+**Both menu links carry the number still awaiting review**, via
+`ReferralReview::pendingCount()` and the `ReferralQueueMenuLink` plugin. That
+number does not reach the Staff Tools *page*, which renders its own curated
+titles from `makerspace_staff_tools`' `data/staff_tools.inventory.yml` rather
+than the menu link's title — and note that adding a `staff-tools` menu link is
+not enough on its own: a link that is not also filed in that inventory is
+invisible on `/staff-tools`. Both are done for this module; keep them together
+if the route ever moves. The list includes all nonempty answers on main profiles,
 newest first, regardless of the discovery category. It is paginated, 25 per page.
 
 Review an answer, confirm an account, mark an external/non-member referral, or
@@ -33,8 +42,12 @@ idempotent. Route permissions protect all pages; Form API protects write request
 legacy `field_member_referral`, create CiviCRM Referral activities, or change the
 existing dashboard KPI. Those integrations should consume confirmed, current
 reviews in a later slice with explicit identity mapping and retry protection.
-No profile-save hooks, automatic matching/backfill, emails, cron, billing calls,
-credits or reward-status assumptions are included. Historical names are visible
+No automatic matching/backfill, emails, cron, billing calls, credits or
+reward-status assumptions are included. There is exactly one profile hook,
+`makerspace_referrals_profile_presave()`, and it **writes nothing** — it
+invalidates the two menu cache tags when the referral answer itself changes, so
+the pending count in the menu link title does not go stale. Every other profile
+edit is ignored. Historical names are visible
 without a migration; a stored name is not evidence that a credit remains unpaid.
 
 Uninstalling the module drops its review table via Drupal's normal schema cleanup.
