@@ -1,0 +1,11 @@
+member_picker:
+  version: 1.x
+  js:
+    js/member-picker.js: {}
+  css:
+    component:
+      css/member-picker.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupal.debounce

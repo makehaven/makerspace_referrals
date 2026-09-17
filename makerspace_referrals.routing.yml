@@ -82,3 +82,13 @@ makerspace_referrals.by_referrer:
     _permission: 'review member referrals'
   options:
     _admin_route: true
+
+makerspace_referrals.member_search:
+  path: '/referral/member-search'
+  defaults:
+    _controller: '\Drupal\makerspace_referrals\Controller\MemberSearch::search'
+  requirements:
+    # Any logged-in account, including someone mid-join. The finder bounds what
+    # can come back; see MemberSearch for why that is where the limit belongs.
+    _user_is_logged_in: 'TRUE'
+  methods: [GET]

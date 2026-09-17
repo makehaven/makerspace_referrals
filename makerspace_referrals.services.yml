@@ -6,7 +6,11 @@ services:
 
   makerspace_referrals.review:
     class: Drupal\makerspace_referrals\Service\ReferralReview
-    arguments: ['@database', '@entity_type.manager', '@datetime.time', '@lock']
+    arguments: ['@database', '@entity_type.manager', '@datetime.time', '@lock', '@makerspace_referrals.member_finder']
+
+  makerspace_referrals.member_finder:
+    class: Drupal\makerspace_referrals\Service\MemberFinder
+    arguments: ['@database', '@entity_type.manager', '@file_url_generator']
 
   makerspace_referrals.projector:
     class: Drupal\makerspace_referrals\Service\ReferralProjector

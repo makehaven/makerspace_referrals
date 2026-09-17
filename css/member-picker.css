@@ -1,0 +1,81 @@
+/**
+ * @file
+ * "Who referred you?" picker.
+ *
+ * Colours come from the theme's tokens rather than hex values, so this follows
+ * the brand and dark mode without a second source of truth.
+ */
+
+.mh-referral-picker__results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.mh-referral-picker__result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--mh-color-border, #d0d5dd);
+  border-radius: var(--mh-radius-md, 6px);
+  background: var(--mh-color-surface, #fff);
+  text-align: start;
+  cursor: pointer;
+}
+
+.mh-referral-picker__result:hover,
+.mh-referral-picker__result:focus-visible {
+  border-color: var(--mh-color-brand-primary, #8b1919);
+  outline: none;
+}
+
+/* Big enough to recognise a face at a glance, which is the whole point. */
+.mh-referral-picker__photo {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--mh-color-surface-muted, #eceff3);
+}
+
+.mh-referral-picker__name {
+  font-weight: 600;
+}
+
+.mh-referral-picker__chosen {
+  display: none;
+}
+
+.mh-referral-picker__chosen.is-chosen {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.mh-referral-picker__tick {
+  color: var(--mh-color-success, #1a7f37);
+  font-weight: 700;
+}
+
+.mh-referral-picker__undo {
+  margin-inline-start: auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The picker is used mid-signup, often on a phone. */
+@media (max-width: 480px) {
+  .mh-referral-picker__photo {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+}

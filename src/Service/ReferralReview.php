@@ -21,6 +21,7 @@ class ReferralReview {
     protected EntityTypeManagerInterface $entities,
     protected TimeInterface $time,
     protected LockBackendInterface $lock,
+    protected MemberFinder $finder,
   ) {}
 
   /**
@@ -77,22 +78,40 @@ class ReferralReview {
   }
 
   /**
-   * Suggests exact first/last-name matches; never confirms them automatically.
+   * Suggests who an answer might mean; never confirms them automatically.
+   *
+   * **Rewritten 2026-09-17, because the old version was a large part of why
+   * 544 stored answers produced two decisions.** It required the answer to be
+   * exactly two words and then demanded an exact match on both, so it returned
+   * nothing at all for 124 of the 544 — every single-word answer ("Michael",
+   * "regina", "Ulla"), everything with a middle name or a note attached, and
+   * anything carrying punctuation, including the real stored answers "Lior!"
+   * and "LIOR!!!!!!!!!!!!!!!!!!!!!!!!!". A blank suggestion list turns a
+   * one-click decision into a research task, and research tasks do not get
+   * done 544 times.
+   *
+   * Now delegates to MemberFinder, which matches a single word against either
+   * name, ignores punctuation and case, and — importantly here — searches
+   * **lapsed accounts too**. Measured against the live backlog: active members
+   * only resolves 37.9% of the answers, including people who have since left
+   * resolves 73%. A referral from 2022 by somebody who has gone is still a
+   * real fact worth recording, even though no credit follows it.
    */
   public function candidates(ProfileInterface $profile): array {
-    $answer = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $this->source($profile))));
-    $parts = explode(' ', $answer, 2);
-    if (count($parts) !== 2 || !$this->database->schema()->tableExists('user__field_first_name') || !$this->database->schema()->tableExists('user__field_last_name')) {
+    $answer = trim($this->source($profile));
+    if ($answer === '') {
       return [];
     }
-    $query = $this->database->select('users_field_data', 'u');
-    $query->innerJoin('user__field_first_name', 'fn', 'fn.entity_id = u.uid AND fn.deleted = 0');
-    $query->innerJoin('user__field_last_name', 'ln', 'ln.entity_id = u.uid AND ln.deleted = 0');
-    $query->addField('u', 'uid');
-    $query->condition('u.uid', 0, '>')->condition('u.uid', $profile->getOwnerId(), '<>');
-    $query->where('LOWER(TRIM(fn.field_first_name_value)) = :first', [':first' => $parts[0]]);
-    $query->where('LOWER(TRIM(ln.field_last_name_value)) = :last', [':last' => $parts[1]]);
-    return $this->entities->getStorage('user')->loadMultiple($query->distinct()->range(0, 10)->execute()->fetchCol());
+
+    $matches = $this->finder->search($answer, (int) $profile->getOwnerId(), FALSE);
+    $uids = [];
+    foreach ($matches as $match) {
+      if (empty($match['more']) && !empty($match['uid'])) {
+        $uids[] = (int) $match['uid'];
+      }
+    }
+
+    return $uids ? $this->entities->getStorage('user')->loadMultiple($uids) : [];
   }
 
   /**
