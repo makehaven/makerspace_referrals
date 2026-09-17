@@ -33,3 +33,52 @@ function makerspace_referrals_profile_presave(ProfileInterface $profile): void {
   }
   \Drupal::service('makerspace_referrals.review')->invalidatePendingCount();
 }
+
+/**
+ * Implements hook_mail().
+ *
+ * Deliberately plain and short. The household invitation this is modelled on
+ * is four sentences and a button, and it has worked 86 times.
+ */
+function makerspace_referrals_mail($key, &$message, $params) {
+  if ($key !== 'invitation') {
+    return;
+  }
+
+  /** @var \Drupal\user\UserInterface $inviter */
+  $inviter = $params['inviter'];
+  $inviter_name = trim(
+    ($inviter->hasField('field_first_name') ? (string) $inviter->get('field_first_name')->value : '') . ' ' .
+    ($inviter->hasField('field_last_name') ? (string) $inviter->get('field_last_name')->value : '')
+  ) ?: $inviter->getAccountName();
+
+  $message['subject'] = t('@name invited you to join MakeHaven', ['@name' => $inviter_name]);
+
+  $lines = [];
+  $lines[] = t('Hi @first,', ['@first' => $params['first'] ?: t('there')]);
+  $lines[] = '';
+  $lines[] = t('@name has invited you to join MakeHaven, a community makerspace in New Haven. Members get access to the workshops, the tools and the people who know how to use them.', [
+    '@name' => $inviter_name,
+  ]);
+  $lines[] = '';
+
+  if (!empty($params['join_url'])) {
+    $lines[] = t('Your invitation includes a discount on your membership. Start here:');
+    $lines[] = $params['join_url'];
+  }
+  else {
+    // Missing configuration must not produce an email that silently offers
+    // nothing; say plainly that a person will follow up.
+    $lines[] = t('Someone from MakeHaven will follow up with you shortly about getting started.');
+  }
+
+  $lines[] = '';
+  $lines[] = t('Hope to see you in the space,');
+  $lines[] = t('The MakeHaven Team');
+
+  $message['body'][] = implode("\n", $lines);
+
+  // Not shown to the invitee — recorded so a maillog entry says which
+  // invitation it was, which is what makes a missing one traceable.
+  $message['headers']['X-MakeHaven-Referral-Inviter'] = (string) $inviter->id();
+}

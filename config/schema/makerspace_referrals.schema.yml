@@ -1,0 +1,19 @@
+makerspace_referrals.settings:
+  type: config_object
+  label: 'Member referral settings'
+  mapping:
+    awards_enabled:
+      type: boolean
+      label: 'Pay referral credits automatically'
+    awards_start:
+      type: integer
+      label: 'Only award for accounts created on or after this timestamp'
+    join_url:
+      type: string
+      label: 'Chargebee hosted page for invited members'
+    invitee_coupon:
+      type: string
+      label: 'Coupon applied to the invited member'
+    notify_email:
+      type: string
+      label: 'Address told when an award fails'

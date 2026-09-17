@@ -1,8 +1,9 @@
 name: Makerspace Referrals
 type: module
-description: Staff review of member recruitment referral attribution.
+description: 'Member referral programme: invitations, attribution review, and the automated credit.'
 core_version_requirement: ^10 || ^11
 package: Makerspace
 dependencies:
   - profile:profile
   - drupal:user
+  - chargebee_status_sync:chargebee_status_sync

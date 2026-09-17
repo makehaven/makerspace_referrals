@@ -19,3 +19,43 @@ makerspace_referrals.review:
     parameters:
       profile:
         type: entity:profile
+
+makerspace_referrals.invite:
+  path: '/referral/invite'
+  defaults:
+    _form: '\Drupal\makerspace_referrals\Form\ReferralInviteForm'
+    _title: 'Invite a friend to join'
+  requirements:
+    _permission: 'send member referral invitations'
+
+makerspace_referrals.awards:
+  path: '/admin/people/referrals/awards'
+  defaults:
+    _controller: '\Drupal\makerspace_referrals\Controller\ReferralAwards::build'
+    _title: 'Referral credits'
+  requirements:
+    _permission: 'review member referrals'
+  options:
+    _admin_route: true
+
+makerspace_referrals.award_action:
+  path: '/admin/people/referrals/awards/{award}/{op}'
+  defaults:
+    _form: '\Drupal\makerspace_referrals\Form\ReferralAwardActionForm'
+    _title: 'Referral credit'
+  requirements:
+    _permission: 'administer member referral awards'
+    award: \d+
+    op: 'retry|reverse'
+  options:
+    _admin_route: true
+
+makerspace_referrals.settings:
+  path: '/admin/config/people/referrals'
+  defaults:
+    _form: '\Drupal\makerspace_referrals\Form\ReferralSettingsForm'
+    _title: 'Member referral settings'
+  requirements:
+    _permission: 'administer member referral awards'
+  options:
+    _admin_route: true

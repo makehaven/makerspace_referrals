@@ -1,0 +1,12 @@
+# Drush 13 discovers commands from this file, not from the module's main
+# services.yml.
+services:
+  makerspace_referrals.commands:
+    class: Drupal\makerspace_referrals\Commands\ReferralCommands
+    arguments:
+      - '@makerspace_referrals.award'
+      - '@makerspace_referrals.chargebee_credit'
+      - '@config.factory'
+      - '@database'
+    tags:
+      - { name: drush.command }

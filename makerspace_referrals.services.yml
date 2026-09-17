@@ -1,4 +1,45 @@
 services:
+  logger.channel.makerspace_referrals:
+    class: Drupal\Core\Logger\LoggerChannel
+    factory: ['@logger.factory', 'get']
+    arguments: ['makerspace_referrals']
+
   makerspace_referrals.review:
     class: Drupal\makerspace_referrals\Service\ReferralReview
     arguments: ['@database', '@entity_type.manager', '@datetime.time', '@lock']
+
+  makerspace_referrals.chargebee_credit:
+    class: Drupal\makerspace_referrals\Service\ChargebeeCredit
+    arguments: ['@http_client', '@config.factory', '@logger.channel.makerspace_referrals']
+
+  makerspace_referrals.invite:
+    class: Drupal\makerspace_referrals\Service\ReferralInvite
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@datetime.time'
+      - '@plugin.manager.mail'
+      - '@config.factory'
+      - '@logger.channel.makerspace_referrals'
+
+  makerspace_referrals.award:
+    class: Drupal\makerspace_referrals\Service\ReferralAward
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@datetime.time'
+      - '@queue'
+      - '@makerspace_referrals.review'
+      - '@makerspace_referrals.invite'
+      - '@makerspace_referrals.chargebee_credit'
+      - '@logger.channel.makerspace_referrals'
+
+  makerspace_referrals.payment_subscriber:
+    class: Drupal\makerspace_referrals\EventSubscriber\PaymentSubscriber
+    arguments:
+      - '@config.factory'
+      - '@entity_type.manager'
+      - '@makerspace_referrals.award'
+      - '@logger.channel.makerspace_referrals'
+    tags:
+      - { name: event_subscriber }

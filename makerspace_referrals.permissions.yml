@@ -2,3 +2,10 @@ review member referrals:
   title: 'Review member recruitment referrals'
   description: 'View referral answers and confirm or correct referrer identities.'
   restrict access: true
+send member referral invitations:
+  title: 'Send member referral invitations'
+  description: 'Invite someone to join and earn the referral credit.'
+administer member referral awards:
+  title: 'Retry or reverse referral credits'
+  description: 'Act on the money side: re-send a failed credit, or record that one was reversed.'
+  restrict access: true

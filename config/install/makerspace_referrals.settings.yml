@@ -1,0 +1,14 @@
+# Ships off. Awards move real money, so switching them on is a deliberate act
+# and not a side effect of deploying the code.
+awards_enabled: false
+# Unix timestamp. Only members whose account was created on or after this can
+# earn their referrer a credit — this is how "let the past be the past"
+# (JR, 2026-09-17) is enforced, and what stops the next renewal of a
+# long-standing member minting a credit years late. 0 means no cutoff, which
+# should not be used on a site with history.
+awards_start: 0
+# Chargebee hosted page the invitation email links to.
+join_url: ''
+# Coupon applied to the invited member's subscription at that checkout.
+invitee_coupon: REFERRED
+notify_email: ''

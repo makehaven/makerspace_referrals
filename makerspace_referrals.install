@@ -25,5 +25,76 @@ function makerspace_referrals_schema(): array {
       'primary key' => ['id'],
       'indexes' => ['profile_history' => ['profile_id', 'id']],
     ],
+
+    'makerspace_referral_invite' => [
+      'description' => 'Invitations a member sent, so attribution is structural rather than remembered.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'inviter_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        // Stored lowercased: Chargebee and Drupal disagree about case, and the
+        // invitee types their own address a second time at checkout.
+        'invitee_email' => ['type' => 'varchar', 'length' => 254, 'not null' => TRUE],
+        'invitee_first' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''],
+        'invitee_last' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''],
+        'created' => ['type' => 'int', 'not null' => TRUE],
+        'claimed_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+        'claimed' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      ],
+      'primary key' => ['id'],
+      'indexes' => [
+        'by_email' => ['invitee_email'],
+        'by_inviter' => ['inviter_uid', 'id'],
+      ],
+    ],
+
+    'makerspace_referral_award' => [
+      'description' => 'One row per referred member: what we owe, what we sent, and what Chargebee said.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'referrer_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'referred_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        // Captured at award time. The referrer's Chargebee id could change
+        // later, and the audit trail should say where the money actually went.
+        'referrer_cb_id' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => ''],
+        'amount_cents' => ['type' => 'int', 'not null' => TRUE],
+        // 'invite' (they used the emailed link) or 'review' (they named the
+        // person at signup and staff confirmed it).
+        'source' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+        // One of: pending, awarded, failed, reversed.
+        'status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+        'attempts' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+        'last_error' => ['type' => 'text'],
+        'chargebee_response' => ['type' => 'text'],
+        'note' => ['type' => 'text'],
+        'created' => ['type' => 'int', 'not null' => TRUE],
+        'updated' => ['type' => 'int', 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      // The double-payment guard is the schema, not the code path. Every
+      // route into an award goes through an insert that this constraint can
+      // refuse, so a replayed webhook, a retried queue item and a staff
+      // click cannot each produce a $50 credit for the same person.
+      'unique keys' => ['one_per_referred' => ['referred_uid']],
+      'indexes' => [
+        'by_status' => ['status', 'id'],
+        'by_referrer' => ['referrer_uid', 'id'],
+      ],
+    ],
   ];
+}
+
+/**
+ * Add the invitation and award tables for the automated referral reward.
+ */
+function makerspace_referrals_update_8001(): string {
+  $schema = \Drupal::database()->schema();
+  $tables = makerspace_referrals_schema();
+  $added = [];
+  foreach (['makerspace_referral_invite', 'makerspace_referral_award'] as $name) {
+    if (!$schema->tableExists($name)) {
+      $schema->createTable($name, $tables[$name]);
+      $added[] = $name;
+    }
+  }
+  return $added ? 'Created: ' . implode(', ', $added) . '.' : 'Both tables already existed; nothing to do.';
 }
