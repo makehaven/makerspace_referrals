@@ -8,5 +8,7 @@ services:
       - '@makerspace_referrals.chargebee_credit'
       - '@config.factory'
       - '@database'
+      - '@makerspace_referrals.projector'
+      - '@makerspace_referrals.stats'
     tags:
       - { name: drush.command }

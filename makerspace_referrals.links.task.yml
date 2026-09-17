@@ -1,0 +1,19 @@
+# Secondary tabs on the referral queue. The chronological list answers "what
+# arrived"; the by-referrer list answers "who do I thank, and for whom", which
+# is the question you ask when you are about to talk to someone.
+makerspace_referrals.queue_tab:
+  title: 'Queue'
+  route_name: makerspace_referrals.queue
+  base_route: makerspace_referrals.queue
+
+makerspace_referrals.by_referrer_tab:
+  title: 'By referrer'
+  route_name: makerspace_referrals.by_referrer
+  base_route: makerspace_referrals.queue
+  weight: 5
+
+makerspace_referrals.awards_tab:
+  title: 'Credits'
+  route_name: makerspace_referrals.awards
+  base_route: makerspace_referrals.queue
+  weight: 10

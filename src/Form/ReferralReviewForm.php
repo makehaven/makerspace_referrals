@@ -129,6 +129,12 @@ class ReferralReviewForm extends FormBase {
       $form_state->setRedirect('makerspace_referrals.review', ['profile' => $form_state->get('profile_id')]);
       return;
     }
+    // Keep the queryable projection in step with the decision just made.
+    // Views cannot call the review service, so a decision that does not reach
+    // field_member_referral is invisible to the dashboard and to the member's
+    // own card — it would look like nobody had reviewed anything.
+    \Drupal::service('makerspace_referrals.projector')->project((int) $form_state->get('profile_id'));
+
     $this->messenger()->addStatus($this->t('Referral review saved.'));
     $form_state->setRedirect('makerspace_referrals.queue');
   }

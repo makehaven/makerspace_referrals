@@ -72,3 +72,13 @@ makerspace_referrals.mine:
     parameters:
       user:
         type: entity:user
+
+makerspace_referrals.by_referrer:
+  path: '/admin/people/referrals/by-referrer'
+  defaults:
+    _controller: '\Drupal\makerspace_referrals\Controller\ReferralsByReferrer::build'
+    _title: 'By referrer'
+  requirements:
+    _permission: 'review member referrals'
+  options:
+    _admin_route: true

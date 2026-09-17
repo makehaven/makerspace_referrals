@@ -8,6 +8,8 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\makerspace_referrals\Service\ChargebeeCredit;
 use Drupal\makerspace_referrals\Service\ReferralAward;
+use Drupal\makerspace_referrals\Service\ReferralProjector;
+use Drupal\makerspace_referrals\Service\ReferralStats;
 use Drush\Commands\DrushCommands;
 
 /**
@@ -20,6 +22,8 @@ class ReferralCommands extends DrushCommands {
     private readonly ChargebeeCredit $chargebee,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly Connection $database,
+    private readonly ReferralProjector $projector,
+    private readonly ReferralStats $stats,
   ) {
     parent::__construct();
   }
@@ -49,6 +53,9 @@ class ReferralCommands extends DrushCommands {
     $o->writeln(sprintf('Credits: %d paid, %d waiting, %d FAILED, %d reversed',
       $counts['awarded'], $counts['pending'], $counts['failed'], $counts['reversed']));
 
+    $o->writeln(sprintf('Answers: %d named, %d resolved to an account (%s%%)',
+      $this->stats->namedCount(), $this->stats->resolvedCount(), $this->stats->resolutionRate()));
+
     $invites = (int) $this->database->select('makerspace_referral_invite', 'i')->countQuery()->execute()->fetchField();
     $claimed = (int) $this->database->select('makerspace_referral_invite', 'i')
       ->condition('claimed_uid', 0, '>')->countQuery()->execute()->fetchField();
@@ -61,6 +68,58 @@ class ReferralCommands extends DrushCommands {
         $o->writeln(sprintf('  #%d  uid %d  $%s  %s', $a->id, $a->referrer_uid, number_format($a->amount_cents / 100, 2), $a->last_error ?: 'no reason recorded'));
       }
       $o->writeln('Retry them with: drush referrals:retry-failed');
+    }
+  }
+
+  /**
+   * Rebuild the resolved-referrer projection from the review decisions.
+   *
+   * Views cannot call a service, so the confirmed referrer is projected into
+   * field_member_referral for the dashboard and the member card to query. This
+   * rebuilds it from scratch; it is safe to re-run and changes nothing when
+   * everything already agrees.
+   *
+   * @command referrals:project
+   * @usage drush referrals:project
+   *   Backfill or repair the projection.
+   */
+  public function project(): void {
+    $counts = $this->projector->projectAll();
+    $this->output()->writeln(sprintf(
+      'Scanned %d profile(s) with an answer: %d set, %d cleared, %d already correct.',
+      $counts['scanned'], $counts['set'], $counts['cleared'], $counts['unchanged'],
+    ));
+
+    $resolved = $this->stats->resolvedCount();
+    $named = $this->stats->namedCount();
+    $this->output()->writeln(sprintf('Resolution rate: %d of %d named (%s%%).', $resolved, $named, $this->stats->resolutionRate()));
+
+    if ($named > 0 && $resolved === 0) {
+      $this->output()->writeln('');
+      $this->output()->writeln('Nothing resolved. That is the review queue, not a bug in this command:');
+      $this->output()->writeln('staff confirm who each name refers to at /admin/people/referrals.');
+    }
+  }
+
+  /**
+   * Show who has introduced the most members.
+   *
+   * @command referrals:top
+   * @option limit How many to list.
+   * @option year Restrict to members who joined in or after this year.
+   * @usage drush referrals:top --year=2025
+   *   The standings since 2025.
+   */
+  public function top(array $options = ['limit' => 10, 'year' => NULL]): void {
+    $year = $options['year'] !== NULL ? (int) $options['year'] : NULL;
+    $rows = $this->stats->topReferrers((int) $options['limit'], $year);
+    if (!$rows) {
+      $this->output()->writeln('Nobody is resolved yet. Run drush referrals:project, and check the review queue.');
+      return;
+    }
+    foreach ($rows as $i => $row) {
+      $this->output()->writeln(sprintf('%2d. %-28s %3d  (most recent %s)',
+        $i + 1, $row['name'], $row['count'], date('Y-m-d', $row['most_recent'])));
     }
   }
 

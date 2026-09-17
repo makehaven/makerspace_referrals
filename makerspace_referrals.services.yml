@@ -8,6 +8,17 @@ services:
     class: Drupal\makerspace_referrals\Service\ReferralReview
     arguments: ['@database', '@entity_type.manager', '@datetime.time', '@lock']
 
+  makerspace_referrals.projector:
+    class: Drupal\makerspace_referrals\Service\ReferralProjector
+    arguments:
+      - '@entity_type.manager'
+      - '@makerspace_referrals.review'
+      - '@logger.channel.makerspace_referrals'
+
+  makerspace_referrals.stats:
+    class: Drupal\makerspace_referrals\Service\ReferralStats
+    arguments: ['@database', '@entity_type.manager']
+
   makerspace_referrals.chargebee_credit:
     class: Drupal\makerspace_referrals\Service\ChargebeeCredit
     arguments: ['@http_client', '@config.factory', '@logger.channel.makerspace_referrals']

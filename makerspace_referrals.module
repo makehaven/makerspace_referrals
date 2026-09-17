@@ -16,6 +16,7 @@
  */
 
 use Drupal\Core\Url;
+use Drupal\makerspace_referrals\Service\ReferralProjector;
 use Drupal\profile\Entity\ProfileInterface;
 
 /**
@@ -35,6 +36,18 @@ function makerspace_referrals_profile_presave(ProfileInterface $profile): void {
   if ($new === $old) {
     return;
   }
+
+  // The answer changed, so any confirmed review of the OLD answer no longer
+  // describes this person and the projection built from it is now a claim
+  // about something nobody said. Clear it here, on the entity already being
+  // saved, rather than through the projector — calling a service that saves
+  // the profile from inside a profile save is how you get recursion.
+  // ReferralReview::status() independently treats a changed answer as pending,
+  // so the queue will ask for the decision again.
+  if ($profile->hasField(ReferralProjector::FIELD) && !$profile->get(ReferralProjector::FIELD)->isEmpty()) {
+    $profile->set(ReferralProjector::FIELD, NULL);
+  }
+
   \Drupal::service('makerspace_referrals.review')->invalidatePendingCount();
 }
 

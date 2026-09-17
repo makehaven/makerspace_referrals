@@ -188,7 +188,11 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
     $this->drupalLogin($member);
     $this->drupalGet('/user/' . $member->id() . '/referrals');
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->pageTextContains('Nobody yet');
+    // No counter for somebody who has introduced nobody: "you have referred 0
+    // members" is a reproach, so the empty state offers the thing that would
+    // change it instead.
+    $this->assertSession()->pageTextNotContains('0 members');
+    $this->assertSession()->pageTextContains('Know someone who would like it here?');
     $this->assertSession()->linkExists('Invite someone');
 
     // Another member has no business seeing who introduced whom.
