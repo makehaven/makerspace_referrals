@@ -177,4 +177,49 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
     $this->assertFalse((bool) $this->config('makerspace_referrals.settings')->get('awards_enabled'));
   }
 
+  /**
+   * A member can see who they introduced; other members cannot.
+   */
+  public function testMyReferralsPageIsPrivateToTheMember(): void {
+    $member = $this->drupalCreateUser(['send member referral invitations']);
+    $other = $this->drupalCreateUser();
+    $staff = $this->drupalCreateUser(['review member referrals']);
+
+    $this->drupalLogin($member);
+    $this->drupalGet('/user/' . $member->id() . '/referrals');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Nobody yet');
+    $this->assertSession()->linkExists('Invite someone');
+
+    // Another member has no business seeing who introduced whom.
+    $this->drupalGet('/user/' . $other->id() . '/referrals');
+    $this->assertSession()->statusCodeEquals(403);
+
+    // Staff who already review referrals can.
+    $this->drupalLogin($staff);
+    $this->drupalGet('/user/' . $member->id() . '/referrals');
+    $this->assertSession()->statusCodeEquals(200);
+  }
+
+  /**
+   * The console says plainly that nobody is being thanked.
+   */
+  public function testConsoleWarnsThanksAreOff(): void {
+    $staff = $this->drupalCreateUser(['review member referrals']);
+    $this->drupalLogin($staff);
+
+    $this->drupalGet('/admin/people/referrals/awards');
+    $this->assertSession()->pageTextContains('Thank-yous are switched OFF');
+    $this->assertSession()->pageTextContains('Thank-yous');
+  }
+
+  /**
+   * Anonymous visitors cannot read anybody's referral list.
+   */
+  public function testMyReferralsIsNotPublic(): void {
+    $member = $this->drupalCreateUser();
+    $this->drupalGet('/user/' . $member->id() . '/referrals');
+    $this->assertSession()->statusCodeEquals(403);
+  }
+
 }

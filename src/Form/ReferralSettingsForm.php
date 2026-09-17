@@ -50,6 +50,20 @@ class ReferralSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Set this before switching credits on. Without it, the next renewal of a member who joined years ago could earn a credit today. Historical referrals are a separate decision.'),
     ];
 
+    $form['thanks_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Thank the member who introduced someone'),
+      '#default_value' => (bool) $config->get('thanks_enabled'),
+      '#description' => $this->t('Emails the referring member when the person they introduced makes their first payment. Costs nothing and does not involve billing, so it can be on long before automatic credits are. Until now nobody who named a referrer was ever acknowledged at all.'),
+    ];
+
+    $form['staff_email'] = [
+      '#type' => 'email',
+      '#title' => $this->t('Tell this address about unconfirmed referrers'),
+      '#default_value' => $config->get('staff_email'),
+      '#description' => $this->t('When a new member names someone nobody has matched to an account, this address gets a note with a link to confirm it. Without it the review queue only grows — it held 545 unanswered names against 2 decisions on 2026-09-17.'),
+    ];
+
     $form['awards_enabled'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Pay referral credits automatically'),
@@ -101,6 +115,8 @@ class ReferralSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $start = (string) $form_state->getValue('awards_start');
     $this->config('makerspace_referrals.settings')
+      ->set('thanks_enabled', (bool) $form_state->getValue('thanks_enabled'))
+      ->set('staff_email', trim((string) $form_state->getValue('staff_email')))
       ->set('awards_enabled', (bool) $form_state->getValue('awards_enabled'))
       ->set('awards_start', $start ? (int) strtotime($start . ' 00:00:00') : 0)
       ->set('join_url', trim((string) $form_state->getValue('join_url')))

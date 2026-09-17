@@ -80,6 +80,24 @@ function makerspace_referrals_schema(): array {
         'by_referrer' => ['referrer_uid', 'id'],
       ],
     ],
+
+    'makerspace_referral_thanks' => [
+      'description' => 'Who we have thanked for a referral, so nobody is thanked twice or silently missed.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'referred_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'referrer_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+        // One of: sent, suppressed, unresolved, none.
+        'status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+        'detail' => ['type' => 'text'],
+        'created' => ['type' => 'int', 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      // Same guard as awards: one row per referred member, enforced by the
+      // database, so a replayed webhook cannot send a second thank-you.
+      'unique keys' => ['one_per_referred' => ['referred_uid']],
+      'indexes' => ['by_referrer' => ['referrer_uid', 'id'], 'by_status' => ['status', 'id']],
+    ],
   ];
 }
 
@@ -97,4 +115,21 @@ function makerspace_referrals_update_8001(): string {
     }
   }
   return $added ? 'Created: ' . implode(', ', $added) . '.' : 'Both tables already existed; nothing to do.';
+}
+
+/**
+ * Add the thank-you table.
+ *
+ * Phase 3 of the referral track: the recognition half, which ships no money.
+ * Recorded per referred member rather than per email so that a suppressed
+ * address and an unresolved name are both visible states rather than silence.
+ */
+function makerspace_referrals_update_8002(): string {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('makerspace_referral_thanks')) {
+    return 'The thanks table already existed; nothing to do.';
+  }
+  $tables = makerspace_referrals_schema();
+  $schema->createTable('makerspace_referral_thanks', $tables['makerspace_referral_thanks']);
+  return 'Created makerspace_referral_thanks.';
 }

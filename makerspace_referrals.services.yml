@@ -34,12 +34,25 @@ services:
       - '@makerspace_referrals.chargebee_credit'
       - '@logger.channel.makerspace_referrals'
 
+  makerspace_referrals.thanks:
+    class: Drupal\makerspace_referrals\Service\ReferralThanks
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@datetime.time'
+      - '@plugin.manager.mail'
+      - '@config.factory'
+      - '@makerspace_referrals.award'
+      - '@makerspace_referrals.review'
+      - '@logger.channel.makerspace_referrals'
+
   makerspace_referrals.payment_subscriber:
     class: Drupal\makerspace_referrals\EventSubscriber\PaymentSubscriber
     arguments:
       - '@config.factory'
       - '@entity_type.manager'
       - '@makerspace_referrals.award'
+      - '@makerspace_referrals.thanks'
       - '@logger.channel.makerspace_referrals'
     tags:
       - { name: event_subscriber }

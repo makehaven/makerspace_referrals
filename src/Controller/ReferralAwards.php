@@ -11,6 +11,7 @@ use Drupal\Core\Url;
 use Drupal\makerspace_referrals\Service\ChargebeeCredit;
 use Drupal\makerspace_referrals\Service\ReferralAward;
 use Drupal\makerspace_referrals\Service\ReferralInvite;
+use Drupal\makerspace_referrals\Service\ReferralThanks;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -27,6 +28,7 @@ class ReferralAwards extends ControllerBase {
     private readonly ReferralAward $awards,
     private readonly ReferralInvite $invites,
     private readonly ChargebeeCredit $chargebee,
+    private readonly ReferralThanks $thanks,
     private readonly ConfigFactoryInterface $settingsConfig,
     private readonly DateFormatterInterface $dates,
   ) {}
@@ -39,6 +41,7 @@ class ReferralAwards extends ControllerBase {
       $container->get('makerspace_referrals.award'),
       $container->get('makerspace_referrals.invite'),
       $container->get('makerspace_referrals.chargebee_credit'),
+      $container->get('makerspace_referrals.thanks'),
       $container->get('config.factory'),
       $container->get('date.formatter'),
     );
@@ -62,6 +65,18 @@ class ReferralAwards extends ControllerBase {
         $this->t('Waiting to send: @n', ['@n' => $counts['pending']]),
         $this->t('Failed — need attention: @n', ['@n' => $counts['failed']]),
         $this->t('Reversed: @n', ['@n' => $counts['reversed']]),
+      ],
+    ];
+
+    $thanks = $this->thanks->countsByStatus();
+    $build['thanks'] = [
+      '#theme' => 'item_list',
+      '#title' => $this->t('Thank-yous'),
+      '#items' => [
+        $this->t('Sent: @n', ['@n' => $thanks[ReferralThanks::SENT]]),
+        $this->t('Not sent — address suppressed: @n', ['@n' => $thanks[ReferralThanks::SUPPRESSED]]),
+        $this->t('Waiting on you to confirm who they meant: @n', ['@n' => $thanks[ReferralThanks::UNRESOLVED]]),
+        $this->t('Named nobody: @n', ['@n' => $thanks[ReferralThanks::NONE]]),
       ],
     ];
 
@@ -103,6 +118,25 @@ class ReferralAwards extends ControllerBase {
       $items[] = [
         '#markup' => '<strong>' . $this->t('No start date is set.') . '</strong> '
         . $this->t('Without one, a long-standing member paying their next renewal could earn a credit years after they joined. Set the start date before switching credits on.'),
+      ];
+    }
+    if (!$settings->get('thanks_enabled')) {
+      $items[] = [
+        '#markup' => '<strong>' . $this->t('Thank-yous are switched OFF.') . '</strong> '
+        . $this->t('Nobody who names a member as the reason they joined is being acknowledged. This costs nothing and does not touch billing.'),
+      ];
+    }
+    if ($settings->get('thanks_enabled') && trim((string) $settings->get('staff_email')) === '') {
+      $items[] = [
+        '#markup' => '<strong>' . $this->t('No staff address is set.') . '</strong> '
+        . $this->t('When a new member names someone we cannot match, nobody will be told, and the referral will sit unconfirmed.'),
+      ];
+    }
+    $unresolved = $this->thanks->countsByStatus()[ReferralThanks::UNRESOLVED];
+    if ($unresolved > 0) {
+      $items[] = [
+        '#markup' => '<strong>' . $this->t('@n referral(s) are waiting on you to confirm who was meant.', ['@n' => $unresolved]) . '</strong> '
+        . $this->t('Until they are confirmed, nobody is thanked and no credit is applied.'),
       ];
     }
     if ($counts['failed'] > 0) {

@@ -1,3 +1,10 @@
+# Thanking somebody costs nothing, so this is a separate switch from the
+# money one and can run long before anyone is comfortable paying
+# automatically. Ships off only because it emails members.
+thanks_enabled: false
+# Told when a new member names a referrer nobody has confirmed, so the
+# review queue gets worked rather than growing.
+staff_email: ''
 # Ships off. Awards move real money, so switching them on is a deliberate act
 # and not a side effect of deploying the code.
 awards_enabled: false

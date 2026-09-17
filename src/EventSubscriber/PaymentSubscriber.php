@@ -9,6 +9,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\makerspace_referrals\Service\ReferralAward;
+use Drupal\makerspace_referrals\Service\ReferralThanks;
 use Drupal\user\UserInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -28,6 +29,7 @@ class PaymentSubscriber implements EventSubscriberInterface {
     private readonly ConfigFactoryInterface $configFactory,
     private readonly EntityTypeManagerInterface $entities,
     private readonly ReferralAward $awards,
+    private readonly ReferralThanks $thanks,
     private readonly LoggerChannelInterface $log,
   ) {}
 
@@ -48,9 +50,13 @@ class PaymentSubscriber implements EventSubscriberInterface {
 
     $settings = $this->configFactory->get('makerspace_referrals.settings');
 
-    // Master switch, shipped off. Awards move real money, so turning them on
-    // is a deliberate act and not a side effect of deploying the code.
-    if (!$settings->get('awards_enabled')) {
+    // Two switches, deliberately independent. Thanking somebody costs nothing
+    // and can run long before anyone is comfortable paying automatically;
+    // making the recognition wait on the billing switch would be the wrong
+    // way round, because the recognition is the part that has never existed.
+    $thanks_on = (bool) $settings->get('thanks_enabled');
+    $awards_on = (bool) $settings->get('awards_enabled');
+    if (!$thanks_on && !$awards_on) {
       return;
     }
 
@@ -66,34 +72,39 @@ class PaymentSubscriber implements EventSubscriberInterface {
       return;
     }
 
-    if (!$this->isEligible($member, (int) $settings->get('awards_start'))) {
+    // The forward-only cutoff gates both halves. Thanking a member for a
+    // referral from three years ago is as wrong as paying for it, just
+    // cheaper.
+    if (!$this->joinedAfterCutoff($member, (int) $settings->get('awards_start'))) {
       return;
     }
 
-    // recordAndQueue() writes first and pays later, and the unique key on
-    // referred_uid is what makes a replayed webhook or a renewal harmless.
-    $this->awards->recordAndQueue((int) $member->id());
+    $uid = (int) $member->id();
+
+    if ($thanks_on && !$this->thanks->handled($uid)) {
+      // Runs first and independently: a failure to pay must not cost somebody
+      // their thank-you, and a switched-off credit must not silence it.
+      $this->thanks->handle($uid);
+    }
+
+    if ($awards_on && !$this->awards->hasAward($uid)) {
+      // recordAndQueue() writes first and pays later, and the unique key on
+      // referred_uid is what makes a replayed webhook or a renewal harmless.
+      $this->awards->recordAndQueue($uid);
+    }
   }
 
   /**
-   * Whether this member can still earn their referrer a credit.
+   * Whether this member joined recently enough for their referral to count.
    *
-   * Two gates, both deliberate:
-   *
-   * 1. The account must have been created on or after `awards_start`. This is
-   *    how "let the past be the past" (JR, 2026-09-17) is enforced in code —
-   *    without it, the next renewal of any long-standing member who once named
-   *    a referrer would mint a $50 credit years late. The historical backlog
-   *    is a separate decision nobody has made yet.
-   * 2. They must not already have an award. The unique key enforces that too,
-   *    but checking here keeps renewals from doing pointless work every month
-   *    for the rest of a member's life.
+   * This is how "let the past be the past" (JR, 2026-09-17) is enforced in
+   * code. Chargebee sends payment_succeeded for every renewal, so without a
+   * cutoff the next monthly payment of any long-standing member who once named
+   * a referrer would mint a credit — and a thank-you — years late. The
+   * historical backlog is a separate decision nobody has made yet.
    */
-  private function isEligible(UserInterface $member, int $awards_start): bool {
-    if ($awards_start > 0 && $member->getCreatedTime() < $awards_start) {
-      return FALSE;
-    }
-    return !$this->awards->hasAward((int) $member->id());
+  private function joinedAfterCutoff(UserInterface $member, int $awards_start): bool {
+    return $awards_start <= 0 || $member->getCreatedTime() >= $awards_start;
   }
 
   /**

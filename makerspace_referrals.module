@@ -2,16 +2,20 @@
 
 /**
  * @file
- * Cache invalidation only — no referral workflow lives here.
+ * Cache invalidation and the module's mail bodies.
  *
- * The module's data boundary (see README) is deliberate: no profile-save hook
- * writes referral state, creates reviews, sends mail or touches billing. The
- * single hook below writes nothing. It exists because the number of referrals
- * awaiting review is rendered in a menu link title, and Drupal's menu render
- * cache is only moved by a cache tag — so a referral arriving has to say so, or
- * staff keep seeing yesterday's number.
+ * The data boundary (see README) is still deliberate: no profile-save hook
+ * writes referral state, creates reviews or touches billing. The presave hook
+ * below writes nothing — it exists because the number of referrals awaiting
+ * review is rendered in a menu link title, and Drupal's menu render cache is
+ * only moved by a cache tag, so a referral arriving has to say so or staff
+ * keep seeing yesterday's number.
+ *
+ * hook_mail() lives here because Drupal requires it to, but every decision
+ * about *whether* to send is made in the services, not in these functions.
  */
 
+use Drupal\Core\Url;
 use Drupal\profile\Entity\ProfileInterface;
 
 /**
@@ -41,6 +45,14 @@ function makerspace_referrals_profile_presave(ProfileInterface $profile): void {
  * is four sentences and a button, and it has worked 86 times.
  */
 function makerspace_referrals_mail($key, &$message, $params) {
+  if ($key === 'thanks') {
+    _makerspace_referrals_mail_thanks($message, $params);
+    return;
+  }
+  if ($key === 'unresolved') {
+    _makerspace_referrals_mail_unresolved($message, $params);
+    return;
+  }
   if ($key !== 'invitation') {
     return;
   }
@@ -81,4 +93,92 @@ function makerspace_referrals_mail($key, &$message, $params) {
   // Not shown to the invitee — recorded so a maillog entry says which
   // invitation it was, which is what makes a missing one traceable.
   $message['headers']['X-MakeHaven-Referral-Inviter'] = (string) $inviter->id();
+}
+
+/**
+ * Builds the thank-you to the member who introduced somebody.
+ *
+ * Says who, says thank you, and mentions money only when money exists. The
+ * whole point of this email is that until now nobody who named a referrer was
+ * ever acknowledged at all, so it has to work with the credit switched off.
+ */
+function _makerspace_referrals_mail_thanks(array &$message, array $params): void {
+  /** @var \Drupal\user\UserInterface $referrer */
+  $referrer = $params['referrer'];
+  /** @var \Drupal\user\UserInterface $referred */
+  $referred = $params['referred'];
+  $award = $params['award'] ?? NULL;
+
+  $their_name = _makerspace_referrals_display_name($referred);
+
+  $message['subject'] = t('Thank you for introducing @name to MakeHaven', ['@name' => $their_name]);
+
+  $lines = [];
+  $lines[] = t('Hi @first,', ['@first' => _makerspace_referrals_first_name($referrer)]);
+  $lines[] = '';
+  $lines[] = t('@name just became a member, and told us you are the person who introduced them. Thank you — word of mouth is how most people find us.', [
+    '@name' => $their_name,
+  ]);
+
+  if ($award) {
+    $lines[] = '';
+    $lines[] = t('A @amount credit has been applied to your account.', [
+      '@amount' => '$' . number_format(((int) $award->amount_cents) / 100, 2),
+    ]);
+  }
+
+  $lines[] = '';
+  $lines[] = t('Thanks for helping the place grow,');
+  $lines[] = t('The MakeHaven Team');
+
+  $message['body'][] = implode("\n", $lines);
+}
+
+/**
+ * Builds the note asking staff to confirm a referrer nobody has matched.
+ *
+ * The review queue held 545 unanswered names against 2 decisions ever recorded
+ * on 2026-09-17. A queue that only grows and never asks anybody for anything
+ * is how that happens; this is the asking.
+ */
+function _makerspace_referrals_mail_unresolved(array &$message, array $params): void {
+  /** @var \Drupal\user\UserInterface $referred */
+  $referred = $params['referred'];
+  $answer = (string) ($params['answer'] ?? '');
+
+  $message['subject'] = t('Referral needs confirming: who is "@answer"?', ['@answer' => $answer]);
+
+  $url = Url::fromRoute('makerspace_referrals.queue', [], ['absolute' => TRUE])->toString();
+
+  $lines = [];
+  $lines[] = t('@name just became a member and named @answer as the person who introduced them.', [
+    '@name' => _makerspace_referrals_display_name($referred),
+    '@answer' => $answer,
+  ]);
+  $lines[] = '';
+  $lines[] = t('Nobody has confirmed which account that is, so we have not thanked them and no credit has been applied. One decision fixes both:');
+  $lines[] = $url;
+  $lines[] = '';
+  $lines[] = t('If it is not a member, marking it so closes it just as well.');
+
+  $message['body'][] = implode("\n", $lines);
+}
+
+/**
+ * A person's display name, preferring their real name.
+ */
+function _makerspace_referrals_display_name($user): string {
+  $name = trim(
+    ($user->hasField('field_first_name') ? (string) $user->get('field_first_name')->value : '') . ' ' .
+    ($user->hasField('field_last_name') ? (string) $user->get('field_last_name')->value : '')
+  );
+  return $name !== '' ? $name : $user->getAccountName();
+}
+
+/**
+ * A person's first name, falling back to something addressable.
+ */
+function _makerspace_referrals_first_name($user): string {
+  $first = $user->hasField('field_first_name') ? trim((string) $user->get('field_first_name')->value) : '';
+  return $first !== '' ? $first : $user->getAccountName();
 }

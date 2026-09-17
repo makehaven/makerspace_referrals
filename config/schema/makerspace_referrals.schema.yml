@@ -2,6 +2,12 @@ makerspace_referrals.settings:
   type: config_object
   label: 'Member referral settings'
   mapping:
+    thanks_enabled:
+      type: boolean
+      label: 'Thank the referring member'
+    staff_email:
+      type: string
+      label: 'Address told about unconfirmed referrers'
     awards_enabled:
       type: boolean
       label: 'Pay referral credits automatically'

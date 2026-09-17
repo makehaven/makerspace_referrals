@@ -59,3 +59,16 @@ makerspace_referrals.settings:
     _permission: 'administer member referral awards'
   options:
     _admin_route: true
+
+makerspace_referrals.mine:
+  path: '/user/{user}/referrals'
+  defaults:
+    _controller: '\Drupal\makerspace_referrals\Controller\MyReferrals::build'
+    _title_callback: '\Drupal\makerspace_referrals\Controller\MyReferrals::title'
+  requirements:
+    _custom_access: '\Drupal\makerspace_referrals\Controller\MyReferrals::access'
+    user: \d+
+  options:
+    parameters:
+      user:
+        type: entity:user
