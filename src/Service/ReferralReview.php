@@ -8,6 +8,8 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Database\Query\SelectInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Lock\LockBackendInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\profile\Entity\ProfileInterface;
 use Drupal\user\UserInterface;
 
@@ -15,6 +17,21 @@ use Drupal\user\UserInterface;
  * Preserves source answers and records explicit staff attribution decisions.
  */
 class ReferralReview {
+
+  use StringTranslationTrait;
+
+  /**
+   * The reviewer_uid stored when the member resolved the referral themselves.
+   *
+   * Since 2026-09-17 the signup question is a picker. Choosing an account from
+   * it is recorded as a confirmed decision with this reviewer, so there is one
+   * audit trail and it says how the identity was settled. Nobody on staff
+   * looked at such a row, and that is by design (JR, 2026-09-22: "self pick is
+   * fine"). Every screen that names a reviewer must say so in words, because
+   * a blank where a staff name belongs reads as though something confirmed
+   * the referral on its own — which is exactly how Kate read the first one.
+   */
+  public const SELF_PICK = 0;
 
   public function __construct(
     protected Connection $database,
@@ -39,6 +56,32 @@ class ReferralReview {
     $query = $this->database->select('makerspace_referral_review', 'r');
     $query->fields('r')->condition('profile_id', $profile_id);
     return $query->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchObject() ?: NULL;
+  }
+
+  /**
+   * Whether a decision was made by the member at signup rather than by staff.
+   */
+  public function isSelfPick(?object $decision): bool {
+    return $decision !== NULL && (int) $decision->reviewer_uid === self::SELF_PICK;
+  }
+
+  /**
+   * What to call an answer's current state on a staff screen.
+   *
+   * "Identity matched" is a confirmed decision nobody on staff made — the
+   * member picked the account at signup. It is the same stored status as
+   * "Identity confirmed" (credits, thanks and the pending count all key on
+   * 'confirmed'), and is shown apart so a staff decision and an automatic
+   * match are never read as the same thing (Kate, 2026-09-22).
+   */
+  public function attributionLabel(string $status, ?object $decision): TranslatableMarkup {
+    if ($status === 'confirmed') {
+      return $this->isSelfPick($decision) ? $this->t('Identity matched') : $this->t('Identity confirmed');
+    }
+    return match ($status) {
+      'external' => $this->t('External / not a member'),
+      default => $this->t('Needs review'),
+    };
   }
 
   /**

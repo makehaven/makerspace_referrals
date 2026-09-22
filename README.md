@@ -36,6 +36,17 @@ source hashes and prior decision IDs reject stale forms. Decisions record the
 source text, chosen account, reviewer and time; repeated identical saves are
 idempotent. Route permissions protect all pages; Form API protects write requests.
 
+A row can be confirmed with no staff involved: when the person joining picks
+their referrer from the list on the thank-you page (`interests_civi_bridge`,
+since 2026-09-17), that choice is recorded as a confirmed decision with
+`reviewer_uid = ReferralReview::SELF_PICK` (0). Staff screens label such a
+row **Identity matched**, as distinct from **Identity confirmed** (a staff
+decision), and the **Decided by** column / "Last recorded review" line say
+"the member" rather than a blank or a raw uid. The stored status is still
+`confirmed` — credits, thanks and the pending count all key on it — so this is
+wording only. The first self-pick on live (2026-09-22) was read by staff as an
+AI confirming referrals on its own; the label split is Kate's suggestion.
+
 ## Data boundary
 
 `makerspace_referral_review` stores review evidence. It does not yet populate the

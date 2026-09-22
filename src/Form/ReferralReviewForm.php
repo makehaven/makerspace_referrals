@@ -85,12 +85,19 @@ class ReferralReviewForm extends FormBase {
       '#description' => $this->t('Select the person who referred this member. A name match alone is not proof. This records attribution only; credit eligibility and payment history require separate review.'),
     ];
     if ($latest) {
+      if ($this->review->isSelfPick($latest)) {
+        $who = $this->t('the member themselves, from the list on the thank-you page');
+      }
+      else {
+        $reviewer = $this->entities->getStorage('user')->load($latest->reviewer_uid);
+        $who = $reviewer ? $reviewer->getDisplayName() : $this->t('staff account @uid (removed)', ['@uid' => $latest->reviewer_uid]);
+      }
       $form['previous'] = [
         '#type' => 'item',
         '#title' => $this->t('Last recorded review'),
-        '#plain_text' => $this->t('@status · reviewer account @reviewer · @date. Earlier decisions and original answers remain in the review history.', [
-          '@status' => $latest->status,
-          '@reviewer' => $latest->reviewer_uid,
+        '#plain_text' => $this->t('@status · decided by @who · @date. Earlier decisions and original answers remain in the review history.', [
+          '@status' => $this->review->attributionLabel($latest->status, $latest),
+          '@who' => $who,
           '@date' => date('Y-m-d H:i', $latest->created),
         ]),
       ];

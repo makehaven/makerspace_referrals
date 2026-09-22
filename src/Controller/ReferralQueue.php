@@ -28,11 +28,6 @@ class ReferralQueue extends ControllerBase {
   public function build(Request $request): array {
     $pending_only = $request->query->get('status') === 'pending';
     $rows = [];
-    $labels = [
-      'pending' => $this->t('Needs review'),
-      'confirmed' => $this->t('Identity confirmed'),
-      'external' => $this->t('External / not a member'),
-    ];
     foreach ($this->review->profiles($pending_only) as $profile) {
       $latest = $this->review->latest((int) $profile->id());
       $status = $this->review->status($profile, $latest);
@@ -40,13 +35,16 @@ class ReferralQueue extends ControllerBase {
       $rows[] = [
         $profile->getOwner()?->toLink() ?? $this->t('Account unavailable'),
         ['data' => ['#plain_text' => $this->review->source($profile)]],
-        $labels[$status] ?? $labels['pending'],
+        $this->review->attributionLabel($status, $latest),
+        $this->decidedBy($status, $latest),
         $referrer ? $referrer->toLink() : $this->t('Not linked'),
         Link::createFromRoute($this->t('Review'), 'makerspace_referrals.review', ['profile' => $profile->id()]),
       ];
     }
+    $intro = '<p>' . $this->t('Review who referred each person. Identity confirmation does not establish reward eligibility or whether a credit has been paid. Referrals are listed newest first. Check billing history before applying any credit.') . '</p>';
+    $intro .= '<p>' . $this->t('A row can arrive as Identity matched: the person joining picked their referrer from the list on the thank-you page, and that choice counts as the identification. Nobody on staff reviewed it, and nothing needs doing unless the choice looks wrong. Identity confirmed is a decision a staff member made.') . '</p>';
     return [
-      'intro' => ['#markup' => '<p>' . $this->t('Review who referred each person. Identity confirmation does not establish reward eligibility or whether a credit has been paid. Referrals are listed newest first. Check billing history before applying any credit.') . '</p>'],
+      'intro' => ['#markup' => $intro],
       'pending' => ['#markup' => '<p>' . $this->formatPlural($this->review->pendingCount(), '1 referral needs identity review.', '@count referrals need identity review.') . '</p>'],
       'filters' => [
         '#theme' => 'item_list',
@@ -61,6 +59,7 @@ class ReferralQueue extends ControllerBase {
           $this->t('Person referred'),
           $this->t('Original answer'),
           $this->t('Attribution'),
+          $this->t('Decided by'),
           $this->t('Linked referrer'),
           $this->t('Action'),
         ],
@@ -70,6 +69,24 @@ class ReferralQueue extends ControllerBase {
       'pager' => ['#type' => 'pager'],
       '#cache' => ['max-age' => 0],
     ];
+  }
+
+  /**
+   * Names who settled the current answer, in words rather than a uid.
+   *
+   * A pending row has no settled decision to attribute, whatever history it
+   * carries. A self-pick says so explicitly: a blank in this column is how a
+   * member's own choice came to look like a decision nobody made.
+   */
+  protected function decidedBy(string $status, ?object $latest): Link|string|\Stringable {
+    if ($status === 'pending' || !$latest) {
+      return $this->t('Awaiting staff');
+    }
+    if ($this->review->isSelfPick($latest)) {
+      return $this->t('The member, at signup');
+    }
+    $reviewer = $this->entityTypeManager()->getStorage('user')->load($latest->reviewer_uid);
+    return $reviewer ? $reviewer->toLink() : $this->t('Staff account @uid (removed)', ['@uid' => $latest->reviewer_uid]);
   }
 
 }
