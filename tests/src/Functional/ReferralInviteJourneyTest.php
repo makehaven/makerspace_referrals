@@ -53,10 +53,7 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
    * A member sends an invitation; it is stored and emailed.
    */
   public function testMemberCanSendAnInvitation(): void {
-    $this->config('makerspace_referrals.settings')
-      ->set('join_url', 'https://example.chargebee.com/hosted_pages/plans/standard')
-      ->set('invitee_coupon', 'REFERRED')
-      ->save();
+    $this->openInvitations();
 
     $member = $this->drupalCreateUser(['send member referral invitations']);
     $member->set('field_first_name', 'Sam')->set('field_last_name', 'Sender')->save();
@@ -96,6 +93,7 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
    * The form refuses the cases that would pay a credit wrongly.
    */
   public function testFormRefusesSelfAndExistingAccounts(): void {
+    $this->openInvitations();
     $member = $this->drupalCreateUser(['send member referral invitations']);
     $existing = $this->drupalCreateUser();
     $this->drupalLogin($member);
@@ -181,11 +179,18 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
    * A member can see who they introduced; other members cannot.
    */
   public function testMyReferralsPageIsPrivateToTheMember(): void {
+    $this->openInvitations();
     $member = $this->drupalCreateUser(['send member referral invitations']);
     $other = $this->drupalCreateUser();
     $staff = $this->drupalCreateUser(['review member referrals']);
 
     $this->drupalLogin($member);
+    // The fixed path the hub card links to is the member's own page.
+    $this->drupalGet('/my-referrals');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkExists('Invite someone');
+    $this->assertSession()->linkExists('How the referral programme works');
+
     $this->drupalGet('/user/' . $member->id() . '/referrals');
     $this->assertSession()->statusCodeEquals(200);
     // No counter for somebody who has introduced nobody: "you have referred 0
@@ -224,6 +229,55 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
     $member = $this->drupalCreateUser();
     $this->drupalGet('/user/' . $member->id() . '/referrals');
     $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet('/my-referrals');
+    $this->assertSession()->statusCodeEquals(403);
+  }
+
+  /**
+   * Until the credit is switched on, nobody is promised one.
+   *
+   * The permission ships to every member ahead of the flip, so the form and
+   * the page have to say "not yet" themselves. While awards are off a first
+   * payment records nothing, and an invitation sent then would be a promise
+   * the site could not keep.
+   */
+  public function testInvitationsAreClosedUntilTheCreditIsOn(): void {
+    $member = $this->drupalCreateUser(['send member referral invitations']);
+    $this->drupalLogin($member);
+
+    $this->drupalGet('/referral/invite');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Invitations are not open yet');
+    $this->assertSession()->buttonNotExists('Send invitation');
+    $this->assertSession()->linkExists('Back to your referrals');
+
+    $this->drupalGet('/my-referrals');
+    $this->assertSession()->pageTextContains('Invitations are not open yet');
+    $this->assertSession()->linkNotExists('Invite someone');
+    $this->assertSession()->linkExists('How the referral programme works');
+
+    // The switch alone is not enough: without a signup link the email would
+    // say staff will follow up, which is not an invitation.
+    $this->config('makerspace_referrals.settings')->set('awards_enabled', TRUE)->save();
+    $this->drupalGet('/my-referrals');
+    $this->assertSession()->linkNotExists('Invite someone');
+
+    $this->openInvitations();
+    $this->drupalGet('/my-referrals');
+    $this->assertSession()->linkExists('Invite someone');
+    $this->drupalGet('/referral/invite');
+    $this->assertSession()->buttonExists('Send invitation');
+  }
+
+  /**
+   * The settings that make an invitation a promise the site can keep.
+   */
+  protected function openInvitations(): void {
+    $this->config('makerspace_referrals.settings')
+      ->set('awards_enabled', TRUE)
+      ->set('join_url', 'https://example.chargebee.com/hosted_pages/plans/standard')
+      ->set('invitee_coupon', 'REFERRED')
+      ->save();
   }
 
 }

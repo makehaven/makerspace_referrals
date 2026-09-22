@@ -8,6 +8,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\Url;
 use Drupal\makerspace_referrals\Service\ReferralAward;
 use Drupal\makerspace_referrals\Service\ReferralInvite;
 use Drupal\user\UserInterface;
@@ -56,6 +57,20 @@ class ReferralInviteForm extends FormBase {
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $amount = $this->formatAmount();
+
+    if (!$this->invites->isOpen()) {
+      // The promise below is only made while it can be kept. See
+      // ReferralInvite::isOpen() for why this is a switch, not a permission.
+      $form['closed'] = [
+        '#markup' => '<p>' . $this->t('Invitations are not open yet. When the referral credit switches on you will be able to invite people from here, and anyone you have introduced already still counts.') . '</p>',
+      ];
+      $form['back'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Back to your referrals'),
+        '#url' => Url::fromRoute('makerspace_referrals.my'),
+      ];
+      return $form;
+    }
 
     $form['intro'] = [
       '#markup' => '<p>' . $this->t('Know someone who would like MakeHaven? Send them an invitation. When they join and their first payment goes through, you get a @amount credit on your account and they get a discount on theirs.', [
@@ -132,6 +147,10 @@ class ReferralInviteForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    if (!$this->invites->isOpen()) {
+      $this->messenger()->addError($this->t('Invitations are not open yet, so nothing was sent.'));
+      return;
+    }
     $account = $this->account();
     if (!$account) {
       $this->messenger()->addError($this->t('We could not identify your account, so the invitation was not sent.'));

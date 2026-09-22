@@ -73,6 +73,16 @@ makerspace_referrals.mine:
       user:
         type: entity:user
 
+# The member's own page at a fixed path, so the member-hub card can link to
+# it. /user/{uid}/referrals stays for staff looking at somebody else's.
+makerspace_referrals.my:
+  path: '/my-referrals'
+  defaults:
+    _controller: '\Drupal\makerspace_referrals\Controller\MyReferrals::mine'
+    _title: 'Refer a friend'
+  requirements:
+    _user_is_logged_in: 'TRUE'
+
 makerspace_referrals.by_referrer:
   path: '/admin/people/referrals/by-referrer'
   defaults:

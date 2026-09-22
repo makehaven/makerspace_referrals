@@ -47,6 +47,23 @@ decision), and the **Decided by** column / "Last recorded review" line say
 wording only. The first self-pick on live (2026-09-22) was read by staff as an
 AI confirming referrals on its own; the label split is Kate's suggestion.
 
+## The member's own page and the hub card
+
+`/my-referrals` (`makerspace_referrals.my`, any logged-in account) is the
+current member's "People you introduced" page — the same build as
+`/user/{uid}/referrals`, which stays for staff looking at somebody else's. It
+is the fixed path the member hub card **Refer a Friend** points at (content
+port `scripts/content-updates/2026-09-22-referral-hub-card/` in the site repo;
+the card's icon is a CSS rule in `makerspace_gin` `css/member_menu.css`).
+
+The `member` role holds `send member referral invitations`, but the
+invitation form and the page's Invite button are additionally gated on
+`ReferralInvite::isOpen()` — `awards_enabled` on **and** `join_url` set. While
+both switches are off a first payment does nothing (no award row, the
+invitation is never marked claimed), so an invitation sent then would promise
+a credit the site cannot keep. The gate lets the permission, page and card
+ship ahead of the flip; the form says "not open yet" until it is.
+
 ## Data boundary
 
 `makerspace_referral_review` stores review evidence. It does not yet populate the

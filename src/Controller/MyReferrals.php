@@ -16,6 +16,7 @@ use Drupal\makerspace_referrals\Service\ReferralStats;
 use Drupal\makerspace_referrals\Service\ReferralThanks;
 use Drupal\user\UserInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Shows a member the people they introduced.
@@ -68,6 +69,17 @@ class MyReferrals extends ControllerBase {
     return AccessResult::allowedIfHasPermission($account, 'review member referrals')
       ->cachePerPermissions()
       ->addCacheableDependency($user);
+  }
+
+  /**
+   * The current member's own page, at the fixed path the hub card links to.
+   */
+  public function mine(): array {
+    $user = $this->entityTypeManager()->getStorage('user')->load($this->currentUser()->id());
+    if (!$user instanceof UserInterface) {
+      throw new NotFoundHttpException();
+    }
+    return $this->build($user);
   }
 
   /**
@@ -127,12 +139,28 @@ class MyReferrals extends ControllerBase {
       ];
     }
 
-    $build['invite_link'] = [
+    $may_invite = $this->currentUser()->hasPermission('send member referral invitations');
+    if ($may_invite && $this->invites->isOpen()) {
+      $build['invite_link'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Invite someone'),
+        '#url' => Url::fromRoute('makerspace_referrals.invite'),
+        '#attributes' => ['class' => ['button']],
+      ];
+    }
+    elseif ($may_invite) {
+      // Said plainly rather than hidden: a member who lands here from the hub
+      // card should learn that invitations are coming, not wonder why there
+      // is no button.
+      $build['invite_soon'] = [
+        '#markup' => '<p>' . $this->t('Invitations are not open yet. When the referral credit switches on you will be able to invite people from here.') . '</p>',
+      ];
+    }
+
+    $build['how'] = [
       '#type' => 'link',
-      '#title' => $this->t('Invite someone'),
-      '#url' => Url::fromRoute('makerspace_referrals.invite'),
-      '#attributes' => ['class' => ['button']],
-      '#access' => $this->currentUser()->hasPermission('send member referral invitations'),
+      '#title' => $this->t('How the referral programme works'),
+      '#url' => Url::fromUserInput('/member-referral-program'),
     ];
 
     // Changes the moment somebody they referred joins or is confirmed.

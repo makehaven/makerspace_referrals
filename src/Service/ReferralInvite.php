@@ -43,6 +43,22 @@ class ReferralInvite {
   }
 
   /**
+   * Whether members may send invitations right now.
+   *
+   * An invitation is a promise of money, so it is open only while the credit
+   * can actually be recorded and the email can carry a real checkout link.
+   * While `awards_enabled` is off a first payment does nothing at all — no
+   * award row, and the invitation is never marked claimed — so a member who
+   * invited somebody during that window would have been promised a credit
+   * the site cannot keep. Gating here, rather than on the permission, lets
+   * the permission, the page and the hub card ship ahead of the flip.
+   */
+  public function isOpen(): bool {
+    $settings = $this->configFactory->get('makerspace_referrals.settings');
+    return (bool) $settings->get('awards_enabled') && trim((string) $settings->get('join_url')) !== '';
+  }
+
+  /**
    * Stores an invitation and emails the invitee.
    *
    * @return int
