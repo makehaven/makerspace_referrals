@@ -81,7 +81,9 @@ makerspace_referrals.my:
     _controller: '\Drupal\makerspace_referrals\Controller\MyReferrals::mine'
     _title: 'Refer a friend'
   requirements:
-    _user_is_logged_in: 'TRUE'
+    # Open to everyone: the member-perks page links here, and a visitor who is
+    # not signed in is sent to the public explanation rather than a login wall.
+    _access: 'TRUE'
 
 makerspace_referrals.by_referrer:
   path: '/admin/people/referrals/by-referrer'

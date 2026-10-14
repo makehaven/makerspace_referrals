@@ -123,7 +123,7 @@ class ReferralEligibilityTest extends KernelTestBase {
   }
 
   /**
-   * Turns the programme on with a cutoff.
+   * Turns the program on with a cutoff.
    */
   private function enable(int $start): void {
     $this->config('makerspace_referrals.settings')

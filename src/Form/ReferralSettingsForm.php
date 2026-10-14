@@ -9,7 +9,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\makerspace_referrals\Service\ReferralAward;
 
 /**
- * Settings for the referral programme.
+ * Settings for the referral program.
  */
 class ReferralSettingsForm extends ConfigFormBase {
 

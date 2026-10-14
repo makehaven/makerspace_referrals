@@ -16,6 +16,7 @@ use Drupal\makerspace_referrals\Service\ReferralStats;
 use Drupal\makerspace_referrals\Service\ReferralThanks;
 use Drupal\user\UserInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -73,8 +74,14 @@ class MyReferrals extends ControllerBase {
 
   /**
    * The current member's own page, at the fixed path the hub card links to.
+   *
+   * Somebody not signed in is curious about the program, not looking for an
+   * account they may not have, so they get the explanation page instead.
    */
-  public function mine(): array {
+  public function mine(): array|RedirectResponse {
+    if ($this->currentUser()->isAnonymous()) {
+      return new RedirectResponse(Url::fromUserInput('/member-referral-program')->toString());
+    }
     $user = $this->entityTypeManager()->getStorage('user')->load($this->currentUser()->id());
     if (!$user instanceof UserInterface) {
       throw new NotFoundHttpException();
@@ -159,7 +166,7 @@ class MyReferrals extends ControllerBase {
 
     $build['how'] = [
       '#type' => 'link',
-      '#title' => $this->t('How the referral programme works'),
+      '#title' => $this->t('How the referral program works'),
       '#url' => Url::fromUserInput('/member-referral-program'),
     ];
 

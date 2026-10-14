@@ -20,7 +20,7 @@ use Drupal\user\UserInterface;
  * 88% of people who say a member referred them volunteer that member's name
  * unprompted, and until now not one of them was ever acknowledged. This ships
  * the promise the site already makes, needs no billing involvement, and is the
- * cheapest test of whether the programme does anything at all.
+ * cheapest test of whether the program does anything at all.
  *
  * It runs on the same trigger as the credit — the referred member's first
  * successful charge — so we never thank somebody for a signup that bounced.

@@ -1,6 +1,6 @@
 name: Makerspace Referrals
 type: module
-description: 'Member referral programme: invitations, attribution review, and the automated credit.'
+description: 'Member referral program: invitations, attribution review, and the automated credit.'
 core_version_requirement: ^10 || ^11
 package: Makerspace
 dependencies:

@@ -13,7 +13,7 @@ use Drupal\makerspace_referrals\Service\ReferralStats;
 use Drush\Commands\DrushCommands;
 
 /**
- * Drush commands for the referral programme.
+ * Drush commands for the referral program.
  */
 class ReferralCommands extends DrushCommands {
 
@@ -29,7 +29,7 @@ class ReferralCommands extends DrushCommands {
   }
 
   /**
-   * Show what the referral programme is doing, without changing anything.
+   * Show what the referral program is doing, without changing anything.
    *
    * Read-only. One command that answers "is this working?" so the answer does
    * not have to be assembled from watchdog.

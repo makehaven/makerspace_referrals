@@ -189,7 +189,7 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
     $this->drupalGet('/my-referrals');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkExists('Invite someone');
-    $this->assertSession()->linkExists('How the referral programme works');
+    $this->assertSession()->linkExists('How the referral program works');
 
     $this->drupalGet('/user/' . $member->id() . '/referrals');
     $this->assertSession()->statusCodeEquals(200);
@@ -224,13 +224,17 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
 
   /**
    * Anonymous visitors cannot read anybody's referral list.
+   *
+   * /my-referrals is linked from public pages, so a visitor is sent to the
+   * explanation of the program rather than shown a login form.
    */
   public function testMyReferralsIsNotPublic(): void {
     $member = $this->drupalCreateUser();
     $this->drupalGet('/user/' . $member->id() . '/referrals');
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalGet('/my-referrals');
-    $this->assertSession()->statusCodeEquals(403);
+    $this->assertSession()->addressEquals('/member-referral-program');
+    $this->assertSession()->pageTextNotContains('You introduced');
   }
 
   /**
@@ -254,7 +258,7 @@ class ReferralInviteJourneyTest extends BrowserTestBase {
     $this->drupalGet('/my-referrals');
     $this->assertSession()->pageTextContains('Invitations are not open yet');
     $this->assertSession()->linkNotExists('Invite someone');
-    $this->assertSession()->linkExists('How the referral programme works');
+    $this->assertSession()->linkExists('How the referral program works');
 
     // The switch alone is not enough: without a signup link the email would
     // say staff will follow up, which is not an invitation.
