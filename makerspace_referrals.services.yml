@@ -71,3 +71,14 @@ services:
       - '@logger.channel.makerspace_referrals'
     tags:
       - { name: event_subscriber }
+
+  makerspace_referrals.review_alert:
+    class: Drupal\makerspace_referrals\Service\ReviewAlert
+    arguments:
+      - '@config.factory'
+      - '@entity_type.manager'
+      - '@plugin.manager.mail'
+      - '@makerspace_referrals.review'
+      - '@logger.channel.makerspace_referrals'
+    tags:
+      - { name: needs_destruction }

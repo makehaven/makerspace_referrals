@@ -64,6 +64,13 @@ class ReferralSettingsForm extends ConfigFormBase {
       '#description' => $this->t('When a new member names someone nobody has matched to an account, this address gets a note with a link to confirm it. Without it the review queue only grows — it held 545 unanswered names against 2 decisions on 2026-09-17.'),
     ];
 
+    $form['review_email'] = [
+      '#type' => 'email',
+      '#title' => $this->t('Tell this address when a referral is waiting for review'),
+      '#default_value' => $config->get('review_email'),
+      '#description' => $this->t('Sent as soon as someone names a referrer that still needs confirming, without waiting for their first payment. Leave empty to rely on the review queue alone.'),
+    ];
+
     $form['awards_enabled'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Pay referral credits automatically'),
@@ -117,6 +124,7 @@ class ReferralSettingsForm extends ConfigFormBase {
     $this->config('makerspace_referrals.settings')
       ->set('thanks_enabled', (bool) $form_state->getValue('thanks_enabled'))
       ->set('staff_email', trim((string) $form_state->getValue('staff_email')))
+      ->set('review_email', trim((string) $form_state->getValue('review_email')))
       ->set('awards_enabled', (bool) $form_state->getValue('awards_enabled'))
       ->set('awards_start', $start ? (int) strtotime($start . ' 00:00:00') : 0)
       ->set('join_url', trim((string) $form_state->getValue('join_url')))

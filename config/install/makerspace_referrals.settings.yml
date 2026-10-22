@@ -5,6 +5,9 @@ thanks_enabled: false
 # Told when a new member names a referrer nobody has confirmed, so the
 # review queue gets worked rather than growing.
 staff_email: ''
+# Told as soon as somebody names a referrer that still needs a person to
+# confirm, whether or not they have paid yet.
+review_email: ''
 # Ships off. Awards move real money, so switching them on is a deliberate act
 # and not a side effect of deploying the code.
 awards_enabled: false

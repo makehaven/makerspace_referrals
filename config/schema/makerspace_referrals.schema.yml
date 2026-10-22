@@ -8,6 +8,9 @@ makerspace_referrals.settings:
     staff_email:
       type: string
       label: 'Address told about unconfirmed referrers'
+    review_email:
+      type: string
+      label: 'Address told when a referral is waiting for review'
     awards_enabled:
       type: boolean
       label: 'Pay referral credits automatically'

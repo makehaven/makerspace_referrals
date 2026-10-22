@@ -5,8 +5,9 @@
  * Cache invalidation and the module's mail bodies.
  *
  * The data boundary (see README) is still deliberate: no profile-save hook
- * writes referral state, creates reviews or touches billing. The presave hook
- * below writes nothing — it exists because the number of referrals awaiting
+ * writes referral state, creates reviews or touches billing. The insert and
+ * update hooks only hand the profile to ReviewAlert, which may email staff.
+ * The presave hook below writes nothing — it exists because the number of referrals awaiting
  * review is rendered in a menu link title, and Drupal's menu render cache is
  * only moved by a cache tag, so a referral arriving has to say so or staff
  * keep seeing yesterday's number.
@@ -52,6 +53,29 @@ function makerspace_referrals_profile_presave(ProfileInterface $profile): void {
 }
 
 /**
+ * Implements hook_profile_insert().
+ */
+function makerspace_referrals_profile_insert(ProfileInterface $profile): void {
+  if ($profile->hasField('field_member_referring')) {
+    \Drupal::service('makerspace_referrals.review_alert')->onSaved($profile, '');
+  }
+}
+
+/**
+ * Implements hook_profile_update().
+ */
+function makerspace_referrals_profile_update(ProfileInterface $profile): void {
+  if (!$profile->hasField('field_member_referring')) {
+    return;
+  }
+  $original = $profile->original ?? NULL;
+  $old = $original instanceof ProfileInterface && $original->hasField('field_member_referring')
+    ? (string) $original->get('field_member_referring')->value
+    : '';
+  \Drupal::service('makerspace_referrals.review_alert')->onSaved($profile, $old);
+}
+
+/**
  * Implements hook_mail().
  *
  * Deliberately plain and short. The household invitation this is modelled on
@@ -64,6 +88,10 @@ function makerspace_referrals_mail($key, &$message, $params) {
   }
   if ($key === 'unresolved') {
     _makerspace_referrals_mail_unresolved($message, $params);
+    return;
+  }
+  if ($key === 'review_needed') {
+    _makerspace_referrals_mail_review_needed($message, $params);
     return;
   }
   if ($key !== 'invitation') {
@@ -170,6 +198,38 @@ function _makerspace_referrals_mail_unresolved(array &$message, array $params): 
   ]);
   $lines[] = '';
   $lines[] = t('Nobody has confirmed which account that is, so we have not thanked them and no credit has been applied. One decision fixes both:');
+  $lines[] = $url;
+  $lines[] = '';
+  $lines[] = t('If it is not a member, marking it so closes it just as well.');
+
+  $message['body'][] = implode("\n", $lines);
+}
+
+/**
+ * Builds the note that a new referral is waiting in the review queue.
+ *
+ * Sent when the answer is saved rather than at first payment, so staff hear
+ * about it the same day (Kate, feedback sid 20834).
+ */
+function _makerspace_referrals_mail_review_needed(array &$message, array $params): void {
+  /** @var \Drupal\user\UserInterface $referred */
+  $referred = $params['referred'];
+  $answer = (string) ($params['answer'] ?? '');
+
+  $message['subject'] = t('Referral awaiting review: @name named "@answer"', [
+    '@name' => _makerspace_referrals_display_name($referred),
+    '@answer' => $answer,
+  ]);
+
+  $url = Url::fromRoute('makerspace_referrals.queue', [], ['absolute' => TRUE])->toString();
+
+  $lines = [];
+  $lines[] = t('@name named @answer as the person who introduced them to MakeHaven.', [
+    '@name' => _makerspace_referrals_display_name($referred),
+    '@answer' => $answer,
+  ]);
+  $lines[] = '';
+  $lines[] = t('Nobody has confirmed which account that is yet. Confirming it is what lets them be thanked and credited:');
   $lines[] = $url;
   $lines[] = '';
   $lines[] = t('If it is not a member, marking it so closes it just as well.');
