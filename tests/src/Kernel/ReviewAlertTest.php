@@ -126,16 +126,20 @@ class ReviewAlertTest extends KernelTestBase {
   }
 
   /**
-   * A member's own pick from the list, recorded after the save, is not news.
+   * A matched answer still tells staff, who add coupon codes by hand.
    */
-  public function testSelfPickedReferrerIsNotAlerted(): void {
+  public function testSelfPickedReferrerStillAlertsStaff(): void {
     $referrer = $this->member('maya', 'Maya', 'Duff');
     $profile = $this->profile($this->member('marcus'), 'Maya Duff');
     $review = $this->container->get('makerspace_referrals.review');
     $review->decide((int) $profile->id(), hash('sha256', $review->source($profile)), 0, 'confirmed', (int) $referrer->id(), ReferralReview::SELF_PICK);
     $this->endRequest();
 
-    $this->assertCount(0, $this->alerts());
+    $alerts = $this->alerts();
+    $this->assertCount(1, $alerts);
+    $this->assertStringContainsString('New referral', (string) $alerts[0]['subject']);
+    $this->assertStringNotContainsString('awaiting review', (string) $alerts[0]['subject']);
+    $this->assertStringContainsString('already matched to Maya Duff', (string) $alerts[0]['body']);
   }
 
   /**

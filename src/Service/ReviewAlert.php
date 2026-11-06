@@ -22,10 +22,11 @@ use Drupal\profile\Entity\ProfileInterface;
  * hangs off the answer itself, which every joiner saves, so it does not
  * depend on billing at all.
  *
- * Deciding waits for the end of the request: the join form saves the typed
- * answer first and records the member's own pick from the list just after
- * (InterestPickerForm), and a referral that is already matched is not waiting
- * on anybody.
+ * Every new answer alerts staff, matched or not: staff still add coupon codes
+ * by hand, so a match needs them too (Kate, feedback sid 20964). Sending waits
+ * for the end of the request because the join form saves the typed answer first
+ * and records the member's own pick from the list just after
+ * (InterestPickerForm), and the email says which of the two it was.
  */
 class ReviewAlert implements DestructableInterface {
 
@@ -84,7 +85,7 @@ class ReviewAlert implements DestructableInterface {
   }
 
   /**
-   * Emails the review address if this profile's answer still needs a person.
+   * Emails the review address about this profile's new answer.
    *
    * @return bool
    *   Whether an alert was sent.
@@ -98,21 +99,28 @@ class ReviewAlert implements DestructableInterface {
     if (!$profile instanceof ProfileInterface) {
       return FALSE;
     }
-    if ($this->review->status($profile, $this->review->latest($profile_id)) !== 'pending') {
-      return FALSE;
-    }
     $owner = $profile->getOwner();
     if (!$owner) {
       return FALSE;
     }
     $answer = trim($this->review->source($profile));
+    $decision = $this->review->latest($profile_id);
+    $status = $this->review->status($profile, $decision);
+    $referrer = $status === 'confirmed'
+      ? $this->entities->getStorage('user')->load($decision->referrer_uid)
+      : NULL;
 
     $this->mail->mail(
       'makerspace_referrals',
       'review_needed',
       $to,
       $owner->getPreferredLangcode(),
-      ['referred' => $owner, 'answer' => $answer],
+      [
+        'referred' => $owner,
+        'answer' => $answer,
+        'pending' => $status === 'pending',
+        'referrer' => $referrer,
+      ],
     );
     $this->log->notice('Told @to that uid @u named "@a" as their referrer.', [
       '@to' => $to,

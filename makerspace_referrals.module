@@ -216,12 +216,33 @@ function _makerspace_referrals_mail_review_needed(array &$message, array $params
   $referred = $params['referred'];
   $answer = (string) ($params['answer'] ?? '');
 
+  $url = Url::fromRoute('makerspace_referrals.queue', [], ['absolute' => TRUE])->toString();
+
+  if (empty($params['pending'])) {
+    $message['subject'] = t('New referral: @name named "@answer"', [
+      '@name' => _makerspace_referrals_display_name($referred),
+      '@answer' => $answer,
+    ]);
+    $lines = [];
+    $lines[] = t('@name named @answer as the person who introduced them to MakeHaven.', [
+      '@name' => _makerspace_referrals_display_name($referred),
+      '@answer' => $answer,
+    ]);
+    $lines[] = '';
+    $lines[] = !empty($params['referrer'])
+      ? t('The answer is already matched to @referrer, so there is nothing to confirm. This is your reminder to update their accounts, including any coupon code.', [
+        '@referrer' => _makerspace_referrals_display_name($params['referrer']),
+      ])
+      : t('The answer has already been decided, so there is nothing to confirm. This is your reminder to update their accounts if needed.');
+    $lines[] = $url;
+    $message['body'][] = implode("\n", $lines);
+    return;
+  }
+
   $message['subject'] = t('Referral awaiting review: @name named "@answer"', [
     '@name' => _makerspace_referrals_display_name($referred),
     '@answer' => $answer,
   ]);
-
-  $url = Url::fromRoute('makerspace_referrals.queue', [], ['absolute' => TRUE])->toString();
 
   $lines = [];
   $lines[] = t('@name named @answer as the person who introduced them to MakeHaven.', [
