@@ -75,7 +75,10 @@ class ChargebeeCredit {
       return $this->result(self::RETRY, NULL, '', 'Chargebee API key or site is not configured.');
     }
 
-    $url = $this->apiBase() . '/customers/' . rawurlencode($customer_id) . '/add_promotional_credit';
+    // promotional_credits/add: this account answers the older
+    // customers/{id}/add_promotional_credit with 404 "not found", which is how
+    // the first award (10-28) failed (checked on the test site 2026-11-12).
+    $url = $this->apiBase() . '/promotional_credits/add';
 
     try {
       $response = $this->http->request('POST', $url, [
@@ -84,9 +87,9 @@ class ChargebeeCredit {
           'Authorization' => 'Basic ' . base64_encode($this->apiKey() . ':'),
         ],
         'form_params' => [
+          'customer_id' => $customer_id,
           'amount' => $amount_cents,
           'description' => $description,
-          'credit_type' => 'promotional_credits',
         ],
         'timeout' => 20,
         'http_errors' => FALSE,
